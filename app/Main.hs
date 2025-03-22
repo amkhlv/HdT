@@ -82,7 +82,7 @@ refresh' da state ctxt = do
         f err msg = putStrLn $ "Error (most likely layer with id >>>" ++ overlayLayerID conf ++ "<<< not found): " ++ show err ++ " " ++ show msg
      in handleGErrorJustDomain f $
           mapM_
-            (\handle -> RsvgH.handleRenderElement handle ctxt (Just $ T.pack $ overlayLayerID conf) rect)
+            (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ overlayLayerID conf) rect)
             mhandle
   return (round pw, round ph)
 
