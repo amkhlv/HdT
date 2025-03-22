@@ -1,4 +1,5 @@
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -26,7 +27,11 @@ import qualified GI.Gdk.Objects.Display as GD
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
 import qualified GI.Gtk as Gtk
+import qualified GI.Gtk.Objects.Dialog as GtkDlg
+import qualified GI.Gtk.Objects.Entry as GtkEnt
+import qualified GI.Gtk.Objects.EntryBuffer as GtkBuf
 import qualified GI.Gtk.Objects.Label as GtkLbl
+import qualified GI.Gtk.Objects.Window as GtkWin
 import qualified GI.Poppler.Enums as PopEnums
 import qualified GI.Poppler.Objects.Document as PopDoc
 import qualified GI.Poppler.Objects.Page as PopPage
@@ -42,6 +47,7 @@ import qualified GI.Rsvg.Structs.Rectangle as RsvgRect
 import qualified Options.Applicative as Opt
 import PdQ
 import System.Directory
+import Text.Read (readMaybe)
 
 data Options = Options
   { pdfFile :: String
@@ -85,6 +91,34 @@ refresh' da state ctxt = do
             (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ overlayLayerID conf) rect)
             mhandle
   return (round pw, round ph)
+
+gotoPageDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
+gotoPageDialog win da l1 l2 state = do
+  st <- readIORef state
+  dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Go to page:"]
+  entry <-
+    new
+      Gtk.Entry
+      [ #placeholderText := "page number",
+        On #activate $ do
+          putStrLn "activate"
+          buf <- Gtk.entryGetBuffer ?self
+          txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
+          case readMaybe txt of
+            Just num -> do
+              let newSt = st {pages = (num - 1) : pages st}
+              writeIORef state newSt
+              GtkWin.windowDestroy dialog
+              readIORef state >>= updateUI da l1 l2
+            Nothing -> return ()
+
+          return ()
+      ]
+  GtkWin.windowSetChild dialog (Just entry)
+  Gtk.widgetSetVisible entry True
+  Gtk.widgetSetVisible dialog True
+
+  return ()
 
 mkColor :: Int -> Double
 mkColor x = fromIntegral x / 255.0
@@ -296,6 +330,13 @@ activate clops app = do
 
   hbox.append toolbar
   hbox.append swin
+  window <-
+    new
+      Gtk.ApplicationWindow
+      [ #application := app,
+        #title := "Hi there",
+        #child := hbox
+      ]
   controllerKeyPress <-
     new
       Gtk.EventControllerKey
@@ -310,6 +351,7 @@ activate clops app = do
             Gdk.KEY_L -> scrollH swin $ 5 * dX conf
             Gdk.KEY_h -> scrollH swin $ -dX conf
             Gdk.KEY_H -> scrollH swin $ -5 * dX conf
+            Gdk.KEY_g -> gotoPageDialog window da pageLabel zoomLabel state
             Gdk.KEY_period -> writeIORef state $ st {scale = scaleStep conf * scale st}
             Gdk.KEY_comma -> writeIORef state $ st {scale = scale st / scaleStep conf}
             Gdk.KEY_n -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
@@ -328,13 +370,6 @@ activate clops app = do
         _ <- refresh area state context
         return ()
     )
-  window <-
-    new
-      Gtk.ApplicationWindow
-      [ #application := app,
-        #title := "Hi there",
-        #child := hbox
-      ]
   Gtk.widgetAddController window controllerKeyPress
   Gtk.windowSetDefaultSize window (fromIntegral $ windowWidth conf) (fromIntegral $ windowHeight conf)
   window.show
