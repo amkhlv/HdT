@@ -97,6 +97,105 @@ refresh' da state ctxt = do
             mhandle
   return (round pw, round ph)
 
+newBookmarkDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
+newBookmarkDialog win da l1 l2 state = do
+  st <- readIORef state
+  dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "New Bookmark"]
+  entry <-
+    new
+      Gtk.Entry
+      [ #placeholderText := "page number",
+        On #activate $ do
+          putStrLn "activate"
+          buf <- Gtk.entryGetBuffer ?self
+          txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
+          let oldPdQ = pdq st
+          let newPdQ =
+                oldPdQ
+                  { bookmarks =
+                      Just $
+                        Bookmark
+                          { title = txt,
+                            bookmarkPage = fromIntegral $ head (pages st)
+                          }
+                          : fromMaybe [] (bookmarks $ pdq st)
+                  }
+          savePdQ (pdqFile st) newPdQ
+          let newSt =
+                st
+                  { pdq = newPdQ
+                  }
+          writeIORef state newSt
+          GtkWin.windowDestroy dialog
+
+          return ()
+      ]
+  GtkWin.windowSetChild dialog (Just entry)
+  controllerKeyPress <-
+    new
+      Gtk.EventControllerKey
+      [ On #keyPressed $ \x _ _mdfr -> do
+          st <- readIORef state
+          case x of
+            Gdk.KEY_Escape -> GtkWin.windowDestroy dialog
+            _ -> return ()
+          return True
+      ]
+  Gtk.widgetAddController dialog controllerKeyPress
+  Gtk.widgetSetVisible entry True
+  Gtk.widgetGrabFocus entry
+  Gtk.widgetSetVisible dialog True
+
+gotoBookmarkDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
+gotoBookmarkDialog win da l1 l2 state = do
+  st <- readIORef state
+  let doc = document st
+  let conf = config st
+  dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Bookmarks"]
+  vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 6]
+  let mbms = bookmarks $ pdq st
+  case mbms of
+    Just bms ->
+      sequence_
+        [ do
+            lbl <- new Gtk.Label [#label := T.pack $ i : ':' : ' ' : title bm]
+            vbox.append lbl
+          | (i, bm) <- zip ['a' .. 'z'] bms
+        ]
+    Nothing -> return ()
+  controllerKeyPress <-
+    new
+      Gtk.EventControllerKey
+      [ On #keyPressed $ \x _ _mdfr -> do
+          st <- readIORef state
+          print x
+          case x of
+            Gdk.KEY_Escape -> GtkWin.windowDestroy dialog
+            y -> do
+              sequence_
+                [ when (y == i) $ do
+                    let oldPdQ = pdq st
+                    let newPdQ = oldPdQ {bookmarks = filter (/= bm) <$> bookmarks (pdq st)}
+                    writeIORef state $ st {pdq = newPdQ}
+                    savePdQ (pdqFile st) newPdQ
+                    GtkWin.windowDestroy dialog
+                  | (i, bm) <- zip [65 ..] (fromMaybe [] $ bookmarks $ pdq st)
+                ]
+              sequence_
+                [ when (y == i) $ do
+                    writeIORef state $ st {pages = fromIntegral (bookmarkPage bm) : pages st}
+                    readIORef state >>= updateUI da l1 l2
+                    GtkWin.windowDestroy dialog
+                  | (i, bm) <- zip [97 ..] (fromMaybe [] $ bookmarks $ pdq st)
+                ]
+          return True
+      ]
+  GtkWin.windowSetChild dialog (Just vbox)
+  Gtk.widgetAddController dialog controllerKeyPress
+  Gtk.widgetSetVisible vbox True
+  Gtk.widgetSetVisible dialog True
+  putStrLn "TODO"
+
 gotoPageDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
 gotoPageDialog win da l1 l2 state = do
   st <- readIORef state
@@ -345,23 +444,25 @@ activate clops app = do
   controllerKeyPress <-
     new
       Gtk.EventControllerKey
-      [ On #keyPressed $ \x _ _modifier -> do
+      [ On #keyPressed $ \x _ mdfr -> do
           st <- readIORef state
-          case x of
-            Gdk.KEY_j -> scrollV swin $ dY conf
-            Gdk.KEY_J -> scrollV swin $ 5 * dY conf
-            Gdk.KEY_k -> scrollV swin $ -dY conf
-            Gdk.KEY_K -> scrollV swin $ -5 * dY conf
-            Gdk.KEY_l -> scrollH swin $ dX conf
-            Gdk.KEY_L -> scrollH swin $ 5 * dX conf
-            Gdk.KEY_h -> scrollH swin $ -dX conf
-            Gdk.KEY_H -> scrollH swin $ -5 * dX conf
-            Gdk.KEY_g -> gotoPageDialog window da pageLabel zoomLabel state
-            Gdk.KEY_period -> writeIORef state $ st {scale = scaleStep conf * scale st}
-            Gdk.KEY_comma -> writeIORef state $ st {scale = scale st / scaleStep conf}
-            Gdk.KEY_n -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
-            Gdk.KEY_p -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
-            Gdk.KEY_b -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
+          case (mdfr, x) of
+            (_, Gdk.KEY_a) -> newBookmarkDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_j) -> scrollV swin $ dY conf
+            (_, Gdk.KEY_J) -> scrollV swin $ 5 * dY conf
+            (_, Gdk.KEY_k) -> scrollV swin $ -dY conf
+            (_, Gdk.KEY_K) -> scrollV swin $ -5 * dY conf
+            (_, Gdk.KEY_l) -> scrollH swin $ dX conf
+            (_, Gdk.KEY_L) -> scrollH swin $ 5 * dX conf
+            (_, Gdk.KEY_h) -> scrollH swin $ -dX conf
+            (_, Gdk.KEY_H) -> scrollH swin $ -5 * dX conf
+            (_, Gdk.KEY_g) -> gotoPageDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_period) -> writeIORef state $ st {scale = scaleStep conf * scale st}
+            (_, Gdk.KEY_comma) -> writeIORef state $ st {scale = scale st / scaleStep conf}
+            (_, Gdk.KEY_n) -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
+            (_, Gdk.KEY_p) -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
             _ -> return ()
 
           newst <- readIORef state
