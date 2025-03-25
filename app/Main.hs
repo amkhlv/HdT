@@ -46,15 +46,20 @@ import qualified GI.Rsvg.Objects.Handle as RsvgH
 import qualified GI.Rsvg.Structs.Rectangle as RsvgRect
 import qualified Options.Applicative as Opt
 import PdQ
+import PrepSVG
 import System.Directory
 import Text.Read (readMaybe)
 
 data Options = Options
-  { pdfFile :: String
+  { extractPage :: Int,
+    pdfFile :: String
   }
 
 optParser :: Opt.Parser Options
-optParser = Options <$> Opt.strArgument (Opt.metavar "PDF_FILE")
+optParser =
+  Options
+    <$> Opt.option Opt.auto (Opt.long "extract-page" <> Opt.short 'e' <> Opt.help "extract page in SVG" <> Opt.value 0)
+    <*> Opt.strArgument (Opt.metavar "PDF_FILE" <> Opt.value "")
 
 getGFile :: Options -> IO GFile.File
 getGFile clops = GFile.fileNewForPath $ pdfFile clops
@@ -88,7 +93,7 @@ refresh' da state ctxt = do
         f err msg = putStrLn $ "Error (most likely layer with id >>>" ++ overlayLayerID conf ++ "<<< not found): " ++ show err ++ " " ++ show msg
      in handleGErrorJustDomain f $
           mapM_
-            (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ overlayLayerID conf) rect)
+            (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ '#' : overlayLayerID conf) rect)
             mhandle
   return (round pw, round ph)
 
@@ -377,11 +382,16 @@ activate clops app = do
 main :: IO ()
 main = do
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
-  app <-
-    new
-      Gtk.Application
-      [ #applicationId := "hdt",
-        On #activate (activate clops ?self)
-      ]
+  if extractPage clops > 0
+    then do
+      conf <- getConfig
+      prepSVG (extractPage clops) (overlayLayerID conf)
+    else do
+      app <-
+        new
+          Gtk.Application
+          [ #applicationId := "hdt",
+            On #activate (activate clops ?self)
+          ]
 
-  void $ app.run Nothing
+      void $ app.run Nothing
