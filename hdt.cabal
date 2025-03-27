@@ -60,7 +60,8 @@ executable hdt
         gi-poppler,
         gi-rsvg,
         optparse-applicative,
-        dhall
+        dhall,
+        vector
 
     hs-source-dirs:   app
     default-language: Haskell2010

@@ -7,7 +7,7 @@
 module Main where
 
 import Config
-import Control.Monad (join, unless, void, when)
+import Control.Monad (join, unless, void, when, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (def)
 import Data.GI.Base
@@ -15,8 +15,8 @@ import Data.GI.Base.GError
 import qualified Data.GI.Base.GValue as GV
 import Data.IORef
 import Data.Maybe (fromMaybe)
-import Data.Semigroup ((<>))
 import qualified Data.Text as T
+import qualified Data.Vector as Vec
 import GHC.Int (Int32)
 import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
@@ -27,8 +27,6 @@ import qualified GI.Gdk.Objects.Display as GD
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
 import qualified GI.Gtk as Gtk
-import qualified GI.Gtk.Objects.Dialog as GtkDlg
-import qualified GI.Gtk.Objects.Entry as GtkEnt
 import qualified GI.Gtk.Objects.EntryBuffer as GtkBuf
 import qualified GI.Gtk.Objects.Label as GtkLbl
 import qualified GI.Gtk.Objects.Window as GtkWin
@@ -248,6 +246,20 @@ refresh da state =
           CR.stroke
         | nt <- nts
       ]
+    case (showMatches st, (Vec.!? (fromIntegral . head $ pages st)) =<< matches st) of
+      (True, Just rects) ->
+        sequence_
+          [ do
+              coors <- liftIO $ sequence [Rect.getRectangleX1 rect, Rect.getRectangleX2 rect, Rect.getRectangleY1 rect, Rect.getRectangleY2 rect]
+              liftIO $ putStr "match at: " >> print coors
+              let cs = (sc *) <$> coors
+              CR.rectangle (cs !! 0) (sc * ph - (cs !! 3)) (cs !! 1 - cs !! 0) (cs !! 3 - cs !! 2)
+              CR.setLineWidth $ 5
+              CR.setSourceRGB 0.75 0.25 0.0
+              CR.stroke
+            | rect <- rects
+          ]
+      _ -> return ()
     CR.scale sc sc
     CRC.toRender (refresh' da state)
 
@@ -259,7 +271,9 @@ data AppState = AppState
     pages :: [Int32],
     totalPages :: Int32,
     scale :: Double,
-    config :: Config
+    config :: Config,
+    matches :: Maybe (Vec.Vector [Rect.Rectangle]),
+    showMatches :: Bool
   }
 
 scrollV :: Gtk.ScrolledWindow -> Double -> IO ()
@@ -282,6 +296,41 @@ updateUI da pageLabel zoomLabel st = do
   GtkLbl.labelSetText zoomLabel $ T.pack (show (round (100 * scale st)) ++ "%")
   Gtk.widgetQueueDraw da
 
+reload :: Options -> IORef AppState -> IO ()
+reload clops state = do
+  st <- readIORef state
+  conf <- getConfig
+  doc <- getDoc clops
+  npages <- PopDoc.documentGetNPages doc
+  pdq' <- getPdQ (pdqFile st)
+  let newPages = filter (< npages) $ pages st
+  writeIORef state $ st {document = doc, totalPages = npages, pdq = pdq', config = conf, pages = newPages, matches = Nothing, showMatches = False}
+
+search :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> Options -> IORef AppState -> IO ()
+search win da pageLabel zoomLabel clops state = do
+  st <- readIORef state
+  dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Go to page:"]
+  entry <-
+    new
+      Gtk.Entry
+      [ #placeholderText := "search",
+        On #activate $ do
+          putStrLn "activate"
+          buf <- Gtk.entryGetBuffer ?self
+          txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
+          ms <-
+            sequence $
+              Vec.generate
+                (fromIntegral $ totalPages st)
+                (PopDoc.documentGetPage (document st) . fromIntegral >=> flip PopPage.pageFindText (T.pack txt))
+          writeIORef state $ st {matches = Just ms, showMatches = True}
+          GtkWin.windowDestroy dialog
+          readIORef state >>= updateUI da pageLabel zoomLabel
+      ]
+  GtkWin.windowSetChild dialog (Just entry)
+  Gtk.widgetSetVisible entry True
+  Gtk.widgetSetVisible dialog True
+
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
   conf <- getConfig
@@ -301,7 +350,9 @@ activate clops app = do
           scale = initialScale conf,
           document = doc,
           pdq = pdq',
-          config = conf
+          config = conf,
+          matches = Nothing,
+          showMatches = False
         }
 
   hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
@@ -452,10 +503,12 @@ activate clops app = do
             (_, Gdk.KEY_J) -> scrollV swin $ 5 * dY conf
             (_, Gdk.KEY_k) -> scrollV swin $ -dY conf
             (_, Gdk.KEY_K) -> scrollV swin $ -5 * dY conf
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_l) -> reload clops state
             (_, Gdk.KEY_l) -> scrollH swin $ dX conf
             (_, Gdk.KEY_L) -> scrollH swin $ 5 * dX conf
             (_, Gdk.KEY_h) -> scrollH swin $ -dX conf
             (_, Gdk.KEY_H) -> scrollH swin $ -5 * dX conf
+            (_, Gdk.KEY_slash) -> search window da pageLabel zoomLabel clops state
             (_, Gdk.KEY_g) -> gotoPageDialog window da pageLabel zoomLabel state
             (_, Gdk.KEY_period) -> writeIORef state $ st {scale = scaleStep conf * scale st}
             (_, Gdk.KEY_comma) -> writeIORef state $ st {scale = scale st / scaleStep conf}
