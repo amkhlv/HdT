@@ -40,7 +40,8 @@ prepSVG pg layername = do
       if alreadyTraced
         then putStrLn "Using already existing pdf file"
         else do
-          statusTrace <- tryFailure $ mkProc "pdf2svg" $ encodeUtf8 . DTL.pack <$> [pdfFile, svgFile, show pg]
+          statusTrace <- tryFailure $ mkProc "pdftocairo" $ encodeUtf8 . DTL.pack <$> [pdfFile, svgFile, "-f", show pg, "-l", show pg, "-svg"]
+          -- statusTrace <- tryFailure $ mkProc "pdf2svg" $ encodeUtf8 . DTL.pack <$> [pdfFile, svgFile, show pg]
           print statusTrace
           statusNewLayer <-
             tryFailure $ createLayer svgFile layername

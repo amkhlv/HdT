@@ -14,7 +14,8 @@ import Data.GI.Base
 import Data.GI.Base.GError
 import qualified Data.GI.Base.GValue as GV
 import Data.IORef
-import Data.Maybe (fromMaybe)
+import Data.List (find)
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as Vec
 import GHC.Int (Int32)
@@ -216,6 +217,16 @@ gotoPageDialog win da l1 l2 state = do
 
           return ()
       ]
+  controllerKeyPress <-
+    new
+      Gtk.EventControllerKey
+      [ On #keyPressed $ \x _ _mdfr -> do
+          case x of
+            Gdk.KEY_Escape -> GtkWin.windowDestroy dialog
+            _ -> return ()
+          return True
+      ]
+  Gtk.widgetAddController dialog controllerKeyPress
   GtkWin.windowSetChild dialog (Just entry)
   Gtk.widgetSetVisible entry True
   Gtk.widgetSetVisible dialog True
@@ -318,18 +329,38 @@ search win da pageLabel zoomLabel clops state = do
           putStrLn "activate"
           buf <- Gtk.entryGetBuffer ?self
           txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
-          ms <-
-            sequence $
-              Vec.generate
-                (fromIntegral $ totalPages st)
-                (PopDoc.documentGetPage (document st) . fromIntegral >=> flip PopPage.pageFindText (T.pack txt))
-          writeIORef state $ st {matches = Just ms, showMatches = True}
-          GtkWin.windowDestroy dialog
-          readIORef state >>= updateUI da pageLabel zoomLabel
+          if null txt
+            then do
+              writeIORef state $ st {matches = Nothing, showMatches = False}
+              GtkWin.windowDestroy dialog
+              readIORef state >>= updateUI da pageLabel zoomLabel
+            else do
+              ms <-
+                sequence $
+                  Vec.generate
+                    (fromIntegral $ totalPages st)
+                    (PopDoc.documentGetPage (document st) . fromIntegral >=> flip PopPage.pageFindText (T.pack txt))
+              writeIORef state $ st {matches = Just ms, showMatches = True}
+              GtkWin.windowDestroy dialog
+              readIORef state >>= updateUI da pageLabel zoomLabel
       ]
   GtkWin.windowSetChild dialog (Just entry)
   Gtk.widgetSetVisible entry True
   Gtk.widgetSetVisible dialog True
+
+findNext :: Gtk.ApplicationWindow -> Bool -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> Options -> IORef AppState -> IO ()
+findNext win searchBackwards da pageLabel zoomLabel clops state = do
+  st <- readIORef state
+  case matches st of
+    Just ms -> do
+      let mNewPage = if searchBackwards then find (\n -> not (null (ms Vec.! fromIntegral n))) $ reverse [0 .. head (pages st) - 1] else find (\n -> not (null (ms Vec.! fromIntegral n))) [1 + head (pages st) .. totalPages st - 1]
+       in mapM_
+            ( \newPage -> do
+                writeIORef state $ st {pages = newPage : tail (pages st), showMatches = True}
+                readIORef state >>= updateUI da pageLabel zoomLabel
+            )
+            mNewPage
+    Nothing -> return ()
 
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
@@ -449,10 +480,10 @@ activate clops app = do
                               putStrLn $ "going to page: " ++ show n1
                               when (n1 > 0) (writeIORef state $ st {pages = n1 - 1 : pages st})
                               readIORef state >>= updateUI da pageLabel zoomLabel
-                              Dest.destFree d1
+                            -- Dest.destFree d1
                             (_, dtype) -> do
                               putStrLn $ "dtype is: " ++ show dtype
-                          mapM_ Dest.destFree dest
+                        -- mapM_ Dest.destFree dest
                         Nothing -> return ()
                     Just PopEnums.ActionTypeUri -> do
                       putStrLn "Link destination is a URI"
@@ -477,8 +508,8 @@ activate clops app = do
                       putStrLn $ "=== Other ActionType: " ++ show other
                     Nothing ->
                       putStrLn "=== Nothing as ActionGoToType"
-                  mapM_ Act.actionFree action
-              | link <- links
+              | -- mapM_ Act.actionFree action
+                link <- links
             ]
       ]
   Gtk.widgetAddController da controllerMouse
@@ -489,7 +520,7 @@ activate clops app = do
     new
       Gtk.ApplicationWindow
       [ #application := app,
-        #title := "Hi there",
+        #title := T.pack $ pdfFile clops,
         #child := hbox
       ]
   controllerKeyPress <-
@@ -512,10 +543,13 @@ activate clops app = do
             (_, Gdk.KEY_g) -> gotoPageDialog window da pageLabel zoomLabel state
             (_, Gdk.KEY_period) -> writeIORef state $ st {scale = scaleStep conf * scale st}
             (_, Gdk.KEY_comma) -> writeIORef state $ st {scale = scale st / scaleStep conf}
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False da pageLabel zoomLabel clops state
             (_, Gdk.KEY_n) -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True da pageLabel zoomLabel clops state
             (_, Gdk.KEY_p) -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
             ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window da pageLabel zoomLabel state
             (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
+            ([], Gdk.KEY_F1) -> writeIORef state $ st {showMatches = not $ showMatches st}
             _ -> return ()
 
           newst <- readIORef state
