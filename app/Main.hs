@@ -30,6 +30,7 @@ import GI.Gio.Objects.Cancellable
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Objects.EntryBuffer as GtkBuf
 import qualified GI.Gtk.Objects.Label as GtkLbl
+import qualified GI.Gtk.Objects.TextView as GtkTV
 import qualified GI.Gtk.Objects.Window as GtkWin
 import qualified GI.Poppler.Enums as PopEnums
 import qualified GI.Poppler.Objects.Document as PopDoc
@@ -95,6 +96,39 @@ refresh' da state ctxt = do
             (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ '#' : overlayLayerID conf) rect)
             mhandle
   return (round pw, round ph)
+
+textExtract :: Gtk.ApplicationWindow -> Config -> IORef AppState -> IO ()
+textExtract win conf state = do
+  st <- readIORef state
+  page <- PopDoc.documentGetPage (document st) (head $ pages st)
+  text <- PopPage.pageGetText page
+  view <- new Gtk.TextView []
+  buffer <- GtkTV.textViewGetBuffer view
+  Gtk.textBufferSetText buffer text (fromIntegral $ length (T.unpack text))
+  popup <- new Gtk.Window [#transientFor := win, #child := view, #destroyWithParent := True, #modal := True, #title := "Text Extracted"]
+  controllerKeyPress <-
+    new
+      Gtk.EventControllerKey
+      [ On #keyPressed $ \x _ _mdfr -> do
+          case x of
+            Gdk.KEY_Escape -> GtkWin.windowDestroy popup
+            _ -> return ()
+          return True
+      ]
+  Gtk.widgetAddController popup controllerKeyPress
+  Gtk.windowSetDefaultSize popup (fromIntegral $ (4 * windowWidth conf) `div` 5) (fromIntegral $ (4 * windowHeight conf) `div` 5)
+  Gtk.widgetSetVisible view True
+  Gtk.widgetSetVisible popup True
+
+copyToClipboard :: String -> IO ()
+copyToClipboard txt = do
+  mdisplay <- GD.displayGetDefault
+  case mdisplay of
+    Just display -> do
+      clipboard <- GD.displayGetClipboard display
+      gtxt <- GV.toGValue $ Just txt
+      CB.clipboardSet clipboard gtxt
+    Nothing -> putStrLn "=== No display"
 
 newBookmarkDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
 newBookmarkDialog win da l1 l2 state = do
@@ -208,7 +242,7 @@ gotoPageDialog win da l1 l2 state = do
           buf <- Gtk.entryGetBuffer ?self
           txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
           case readMaybe txt of
-            Just num -> do
+            Just num -> when (num > 0 && num <= fromIntegral (totalPages st)) $ do
               let newSt = st {pages = (num - 1) : pages st}
               writeIORef state newSt
               GtkWin.windowDestroy dialog
@@ -530,6 +564,8 @@ activate clops app = do
           st <- readIORef state
           case (mdfr, x) of
             (_, Gdk.KEY_a) -> newBookmarkDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_c) -> makeAbsolute (pdfFile clops) >>= copyToClipboard
+            (_, Gdk.KEY_d) -> makeAbsolute (dDir st) >>= copyToClipboard
             (_, Gdk.KEY_j) -> scrollV swin $ dY conf
             (_, Gdk.KEY_J) -> scrollV swin $ 5 * dY conf
             (_, Gdk.KEY_k) -> scrollV swin $ -dY conf
@@ -548,6 +584,7 @@ activate clops app = do
             ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True da pageLabel zoomLabel clops state
             (_, Gdk.KEY_p) -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
             ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window da pageLabel zoomLabel state
+            ([], Gdk.KEY_t) -> textExtract window conf state
             (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
             ([], Gdk.KEY_F1) -> writeIORef state $ st {showMatches = not $ showMatches st}
             _ -> return ()
