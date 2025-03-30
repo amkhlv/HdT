@@ -42,9 +42,9 @@ configDecoder =
 getConfig :: String -> IO Config
 getConfig dDir = do
   d <- makeAbsolute dDir
-  configFileInDDir <- doesFileExist (d ++ "/hdt.dhall")
+  configFileInDDir <- doesFileExist (d ++ "/config.dhall")
   if configFileInDDir
     then do
-      putStrLn $ "-- loading extra config file:" ++ d ++ "/hdt.dhall"
-      input configDecoder (T.pack $ "~/.config/hdt/config.dhall // " ++ d ++ "/hdt.dhall")
+      putStrLn $ "-- loading extra config file:" ++ d ++ "/config.dhall"
+      input configDecoder (T.pack $ "~/.config/hdt/config.dhall // " ++ d ++ "/config.dhall")
     else input configDecoder "~/.config/hdt/config.dhall"

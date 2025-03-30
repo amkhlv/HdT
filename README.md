@@ -18,9 +18,16 @@ Configuration
 -------------
 
 The sample configuration file `hdt.dhall` should be copied to `~/.config/hdt/config.dhall`.
-It is possible to overwrite settings separately for each `pdf` file  in the following way.
-For a `pdf` file called `filename.pdf`, create a directory called `filename.d` in the same directory as the `pdf` file.
-Extra settings can be put in a file  `filename.d/hdt.dhall`.
+
+It is possible to __overwrite settings separately for each `pdf` file__  in the following way.
+For a `pdf` file called `filename.pdf`, create a directory called `filename.hdt` in the same directory as the `pdf` file.
+To ovewrite settings, put the corresponding keys in  `filename.hdt/config.dhall`. For example:
+
+    {
+     initialScale = 1.3
+     }
+
+-- this will overwrite the `initialScale` setting in `~/.config/hdt/config.dhall` specially for the `filename.pdf` file.
 
 Use
 ---
@@ -50,8 +57,7 @@ Use
     Go to page                                g                   go
     Extract text on this page                 t                   T
     Copy path to filename.pdf to clipboard    c
-    Copy path to filename.d to clipboard      d
-    -- see [Scribble over with Inkscape] ↓↓↓
+    Copy path to filename.hdt to clipboard    d
 
 Working with bookmarks:
 
@@ -69,13 +75,13 @@ Let us view a file called `paper.pdf` :
 
 To create an SVG overlay over page 3, do this:
 
-    mkdir paper.d
-    cd paper.d
+    mkdir paper.hdt
+    cd paper.hdt
     hdt -e 3
     inkscape p3.svg &
 
 While drawing in Inkscape, make sure that you draw on the layer with the id: `layer1`. This should be automatic, just double-check.
 It is the `layer1` that becomes the overlay, when viewing the `paper.pdf`.
-The overlays are all in `paper.d/`, named `p<n>.svg`, where `n` is the page number.
+The overlays are all in `paper.hdt/`, named `p<n>.svg`, where `n` is the page number.
 
 To see the effect in the viewed file, reload it with `Ctrl-l`.

@@ -32,9 +32,9 @@ createLayer filename layername =
 prepSVG :: Int -> String -> IO ()
 prepSVG pg layername = do
   wd <- getCurrentDirectory
-  if isSuffixOf ".d" $ pack wd
+  if isSuffixOf ".hdt" $ pack wd
     then do
-      let pdfFile = init wd ++ "pdf"
+      let pdfFile = (init . init . init) wd ++ "pdf"
       let svgFile = "p" ++ show pg ++ ".svg"
       alreadyTraced <- doesFileExist svgFile
       if alreadyTraced
@@ -46,4 +46,4 @@ prepSVG pg layername = do
           statusNewLayer <-
             tryFailure $ createLayer svgFile layername
           print statusNewLayer
-    else error "Not in a pdfFile.d directory"
+    else error "Not in an .hdt directory"

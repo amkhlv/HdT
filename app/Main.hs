@@ -409,7 +409,7 @@ mkpdqfname :: String -> String
 mkpdqfname pdfname = reverse $ "qdp" ++ (tail . tail . tail . reverse $ pdfname)
 
 mkddirname :: String -> String
-mkddirname pdfname = reverse $ "d" ++ (tail . tail . tail . reverse $ pdfname)
+mkddirname pdfname = reverse $ "tdh" ++ (tail . tail . tail . reverse $ pdfname)
 
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
@@ -592,7 +592,7 @@ activate clops app = do
             [ do
                 rect <- LinkMap.getLinkMappingArea link
                 coors <- sequence [Rect.getRectangleX1 rect, Rect.getRectangleX2 rect, Rect.getRectangleY1 rect, Rect.getRectangleY2 rect]
-                putStrLn $ "Link at: [" ++ show (s * coors !! 0) ++ "," ++ show (s * coors !! 1) ++ "]x[" ++ show (s * (height - coors !! 2)) ++ "," ++ show (s * (height - coors !! 3)) ++ "]"
+                -- putStrLn $ "Link at: [" ++ show (s * coors !! 0) ++ "," ++ show (s * coors !! 1) ++ "]x[" ++ show (s * (height - coors !! 2)) ++ "," ++ show (s * (height - coors !! 3)) ++ "]"
                 when (x > s * coors !! 0 && x < s * coors !! 1 && y > s * (height - coors !! 3) && y < s * (height - coors !! 2)) $ do
                   putStrLn "hit"
                   action <- LinkMap.getLinkMappingAction link
@@ -702,7 +702,7 @@ main = do
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
     then do
-      conf <- getConfig $ mkddirname $ pdfFile clops
+      conf <- getConfig ""
       prepSVG (extractPage clops) (overlayLayerID conf)
     else do
       app <-
