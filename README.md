@@ -17,7 +17,10 @@ To build and install `hdt`, run `cabal install` in this directory.
 Configuration
 -------------
 
-The sample configuration file `hdt.dhall` should be copied to `~/.config/hdt.dhall`
+The sample configuration file `hdt.dhall` should be copied to `~/.config/hdt/config.dhall`.
+It is possible to overwrite settings separately for each `pdf` file  in the following way.
+For a `pdf` file called `filename.pdf`, create a directory called `filename.d` in the same directory as the `pdf` file.
+Extra settings can be put in a file  `filename.d/hdt.dhall`.
 
 Use
 ---
@@ -39,13 +42,13 @@ Use
     Scroll Right Fast                         Shift-l
     Zoom In                                   .                   ⊕
     Zoom Out                                  ,                   ⊖
-    Go back after link jump                   b                   ↩
+    Go back after jump                        b                   ↩
     Enter search term                         /
-    Look for matches on next pages            Ctrl-n
-    Look for matches on previous pages        Ctrl-p
+    Look for matches on next pages            Ctrl-n              𝒩
+    Look for matches on previous pages        Ctrl-p              𝒫
     Toggle highlight of search matches        F1
     Go to page                                g                   go
-    Extract text on this page                 t                   txt
+    Extract text on this page                 t                   T
     Copy path to filename.pdf to clipboard    c
     Copy path to filename.d to clipboard      d
     -- see [Scribble over with Inkscape] ↓↓↓
