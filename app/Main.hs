@@ -52,7 +52,8 @@ import Text.Read (readMaybe)
 
 data Options = Options
   { extractPage :: Int,
-    pdfFile :: String
+    pdfFile :: String,
+    openPage :: Int
   }
 
 optParser :: Opt.Parser Options
@@ -60,6 +61,7 @@ optParser =
   Options
     <$> Opt.option Opt.auto (Opt.long "extract-page" <> Opt.short 'e' <> Opt.help "extract page in SVG" <> Opt.value 0)
     <*> Opt.strArgument (Opt.metavar "PDF_FILE" <> Opt.value "")
+    <*> Opt.option Opt.auto (Opt.long "page" <> Opt.short 'p' <> Opt.help "open page" <> Opt.value 1)
 
 getGFile :: Options -> IO GFile.File
 getGFile clops = GFile.fileNewForPath $ pdfFile clops
@@ -130,8 +132,14 @@ copyToClipboard txt = do
       CB.clipboardSet clipboard gtxt
     Nothing -> putStrLn "=== No display"
 
-newBookmarkDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
-newBookmarkDialog win da l1 l2 state = do
+data ToUpdate = ToUpdate
+  { da :: Gtk.DrawingArea,
+    lPage :: Gtk.Label,
+    lZoom :: Gtk.Label
+  }
+
+newBookmarkDialog :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
+newBookmarkDialog win tu state = do
   st <- readIORef state
   dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "New Bookmark"]
   entry <-
@@ -179,8 +187,8 @@ newBookmarkDialog win da l1 l2 state = do
   Gtk.widgetGrabFocus entry
   Gtk.widgetSetVisible dialog True
 
-gotoBookmarkDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
-gotoBookmarkDialog win da l1 l2 state = do
+gotoBookmarkDialog :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
+gotoBookmarkDialog win tu state = do
   st <- readIORef state
   let doc = document st
   let conf = config st
@@ -217,7 +225,7 @@ gotoBookmarkDialog win da l1 l2 state = do
               sequence_
                 [ when (y == i) $ do
                     writeIORef state $ st {pages = fromIntegral (bookmarkPage bm) : pages st}
-                    readIORef state >>= updateUI da l1 l2
+                    readIORef state >>= updateUI tu
                     GtkWin.windowDestroy dialog
                   | (i, bm) <- zip [97 ..] (fromMaybe [] $ bookmarks $ pdq st)
                 ]
@@ -229,8 +237,8 @@ gotoBookmarkDialog win da l1 l2 state = do
   Gtk.widgetSetVisible dialog True
   putStrLn "TODO"
 
-gotoPageDialog :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> IORef AppState -> IO ()
-gotoPageDialog win da l1 l2 state = do
+gotoPageDialog :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
+gotoPageDialog win tu state = do
   st <- readIORef state
   dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Go to page:"]
   entry <-
@@ -246,7 +254,7 @@ gotoPageDialog win da l1 l2 state = do
               let newSt = st {pages = (num - 1) : pages st}
               writeIORef state newSt
               GtkWin.windowDestroy dialog
-              readIORef state >>= updateUI da l1 l2
+              readIORef state >>= updateUI tu
             Nothing -> return ()
 
           return ()
@@ -296,7 +304,7 @@ refresh da state =
         sequence_
           [ do
               coors <- liftIO $ sequence [Rect.getRectangleX1 rect, Rect.getRectangleX2 rect, Rect.getRectangleY1 rect, Rect.getRectangleY2 rect]
-              liftIO $ putStr "match at: " >> print coors
+              -- liftIO $ putStr "match at: " >> print coors
               let cs = (sc *) <$> coors
               CR.rectangle (cs !! 0) (sc * ph - (cs !! 3)) (cs !! 1 - cs !! 0) (cs !! 3 - cs !! 2)
               CR.setLineWidth $ 5
@@ -335,24 +343,25 @@ scrollH swin dh = do
   Gtk.setAdjustmentValue hadj (h + dh)
   Gtk.scrolledWindowSetHadjustment swin (Just hadj)
 
-updateUI :: Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> AppState -> IO ()
-updateUI da pageLabel zoomLabel st = do
-  GtkLbl.labelSetText pageLabel $ T.pack (show $ head (pages st) + 1)
-  GtkLbl.labelSetText zoomLabel $ T.pack (show (round (100 * scale st)) ++ "%")
-  Gtk.widgetQueueDraw da
+updateUI :: ToUpdate -> AppState -> IO ()
+updateUI tu st = do
+  -- GtkLbl.labelSetText (lPage tu) $ T.pack (show $ head (pages st) + 1)
+  Gtk.labelSetMarkup (lPage tu) (T.pack $ "<span size=\"x-large\" weight=\"bold\">" ++ show (head (pages st) + 1) ++ "</span>")
+  GtkLbl.labelSetText (lZoom tu) $ T.pack (show (round (100 * scale st)) ++ "%")
+  Gtk.widgetQueueDraw (da tu)
 
 reload :: Options -> IORef AppState -> IO ()
 reload clops state = do
   st <- readIORef state
-  conf <- getConfig
+  conf <- getConfig $ dDir st
   doc <- getDoc clops
   npages <- PopDoc.documentGetNPages doc
   pdq' <- getPdQ (pdqFile st)
   let newPages = filter (< npages) $ pages st
   writeIORef state $ st {document = doc, totalPages = npages, pdq = pdq', config = conf, pages = newPages, matches = Nothing, showMatches = False}
 
-search :: Gtk.ApplicationWindow -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> Options -> IORef AppState -> IO ()
-search win da pageLabel zoomLabel clops state = do
+search :: Gtk.ApplicationWindow -> ToUpdate -> Options -> IORef AppState -> IO ()
+search win tu clops state = do
   st <- readIORef state
   dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Go to page:"]
   entry <-
@@ -367,7 +376,7 @@ search win da pageLabel zoomLabel clops state = do
             then do
               writeIORef state $ st {matches = Nothing, showMatches = False}
               GtkWin.windowDestroy dialog
-              readIORef state >>= updateUI da pageLabel zoomLabel
+              readIORef state >>= updateUI tu
             else do
               ms <-
                 sequence $
@@ -376,14 +385,14 @@ search win da pageLabel zoomLabel clops state = do
                     (PopDoc.documentGetPage (document st) . fromIntegral >=> flip PopPage.pageFindText (T.pack txt))
               writeIORef state $ st {matches = Just ms, showMatches = True}
               GtkWin.windowDestroy dialog
-              readIORef state >>= updateUI da pageLabel zoomLabel
+              readIORef state >>= updateUI tu
       ]
   GtkWin.windowSetChild dialog (Just entry)
   Gtk.widgetSetVisible entry True
   Gtk.widgetSetVisible dialog True
 
-findNext :: Gtk.ApplicationWindow -> Bool -> Gtk.DrawingArea -> Gtk.Label -> Gtk.Label -> Options -> IORef AppState -> IO ()
-findNext win searchBackwards da pageLabel zoomLabel clops state = do
+findNext :: Gtk.ApplicationWindow -> Bool -> ToUpdate -> Options -> IORef AppState -> IO ()
+findNext win searchBackwards tu clops state = do
   st <- readIORef state
   case matches st of
     Just ms -> do
@@ -391,15 +400,22 @@ findNext win searchBackwards da pageLabel zoomLabel clops state = do
        in mapM_
             ( \newPage -> do
                 writeIORef state $ st {pages = newPage : tail (pages st), showMatches = True}
-                readIORef state >>= updateUI da pageLabel zoomLabel
+                readIORef state >>= updateUI tu
             )
             mNewPage
     Nothing -> return ()
 
+mkpdqfname :: String -> String
+mkpdqfname pdfname = reverse $ "qdp" ++ (tail . tail . tail . reverse $ pdfname)
+
+mkddirname :: String -> String
+mkddirname pdfname = reverse $ "d" ++ (tail . tail . tail . reverse $ pdfname)
+
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
-  conf <- getConfig
-  let pdqF = reverse $ "qdp" ++ (tail . tail . tail . reverse $ pdfFile clops)
+  let pdqF = mkpdqfname $ pdfFile clops
+  let pdqD = mkddirname $ pdfFile clops
+  conf <- getConfig $ pdqD
   doesFileExist pdqF >>= flip unless (savePdQ pdqF def)
   pdq' <- getPdQ pdqF
   print pdq'
@@ -409,8 +425,8 @@ activate clops app = do
     newIORef $
       AppState
         { pdqFile = pdqF,
-          dDir = reverse $ "d" ++ (tail . tail . tail . reverse $ pdfFile clops),
-          pages = [0],
+          dDir = pdqD,
+          pages = [fromIntegral clops.openPage - 1],
           totalPages = npages,
           scale = initialScale conf,
           document = doc,
@@ -429,8 +445,17 @@ activate clops app = do
   view <- new Gtk.Viewport [#child := da, #hexpand := True]
   swin <- new Gtk.ScrolledWindow [#child := view, #hexpand := True]
 
-  pageLabel <- new Gtk.Label [#label := "--"]
-  zoomLabel <- new Gtk.Label [#label := "--"]
+  separator <- new Gtk.Separator [#orientation := Gtk.OrientationHorizontal]
+  pageLabelLabel <- new Gtk.Label []
+  Gtk.labelSetMarkup pageLabelLabel "<small>page</small>"
+  pageLabel <- new Gtk.Label []
+  Gtk.labelSetMarkup pageLabel (T.pack $ "<span size=\"x-large\" weight=\"bold\">" ++ show (openPage clops) ++ "</span>")
+  totalPagesLabelLabel <- new Gtk.Label []
+  Gtk.labelSetMarkup totalPagesLabelLabel "<small>of</small>"
+  totalPagesLabel <- new Gtk.Label [#label := (T.pack . show $ npages)]
+  zoomLabel <- new Gtk.Label [#label := T.pack (show (round $ 100 * initialScale conf) ++ "%")]
+
+  let toUpdate = ToUpdate {da = da, lPage = pageLabel, lZoom = zoomLabel}
 
   buttonNextPage <-
     new
@@ -442,7 +467,9 @@ activate clops app = do
               st <- readIORef state
               when
                 (head (pages st) < totalPages st - 1)
-                ((writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)}) >> updateUI da pageLabel zoomLabel st)
+                ( (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
+                    >> updateUI toUpdate st
+                )
           )
       ]
   buttonPrevPage <-
@@ -455,7 +482,9 @@ activate clops app = do
               st <- readIORef state
               when
                 (head (pages st) > 0)
-                ((writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)}) >> updateUI da pageLabel zoomLabel st)
+                ( (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
+                    >> updateUI toUpdate st
+                )
           )
       ]
   buttonGoBack <-
@@ -468,15 +497,87 @@ activate clops app = do
               st <- readIORef state
               when
                 (length (pages st) > 1)
-                ((writeIORef state $ st {pages = tail (pages st)}) >> updateUI da pageLabel zoomLabel st)
+                ( (writeIORef state $ st {pages = tail (pages st)})
+                    >> updateUI toUpdate st
+                )
           )
       ]
+  buttonZoomIn <-
+    new
+      Gtk.Button
+      [ #label := "⊕",
+        On
+          #clicked
+          ( do
+              st <- readIORef state
+              let newScale = scale st * scaleStep conf
+              writeIORef state $ st {scale = newScale}
+              updateUI toUpdate st
+          )
+      ]
+  buttonZoomOut <-
+    new
+      Gtk.Button
+      [ #label := "⊖",
+        On
+          #clicked
+          ( do
+              st <- readIORef state
+              let newScale = scale st / scaleStep conf
+              writeIORef state $ st {scale = newScale}
+              updateUI toUpdate st
+          )
+      ]
+  window <-
+    new
+      Gtk.ApplicationWindow
+      [ #application := app,
+        #title := T.pack $ pdfFile clops,
+        #child := hbox
+      ]
+  buttonStartSearch <-
+    new
+      Gtk.Button
+      [ #label := "🔍",
+        On
+          #clicked
+          ( do
+              st <- readIORef state
+              search window toUpdate clops state
+          )
+      ]
+  buttonNextMatch <-
+    new
+      Gtk.Button
+      [ #label := "𝒩",
+        On
+          #clicked
+          (findNext window False toUpdate clops state)
+      ]
+  buttonPrevMatch <-
+    new
+      Gtk.Button
+      [ #label := "𝒫",
+        On
+          #clicked
+          (findNext window True toUpdate clops state)
+      ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
-  toolbar.append buttonNextPage
   toolbar.append buttonPrevPage
+  toolbar.append buttonNextPage
   toolbar.append buttonGoBack
+  toolbar.append separator
+  toolbar.append pageLabelLabel
   toolbar.append pageLabel
+  toolbar.append totalPagesLabelLabel
+  toolbar.append totalPagesLabel
+  toolbar.append separator
+  toolbar.append buttonZoomIn
+  toolbar.append buttonZoomOut
   toolbar.append zoomLabel
+  toolbar.append buttonStartSearch
+  toolbar.append buttonPrevMatch
+  toolbar.append buttonNextMatch
 
   controllerMouse <-
     new
@@ -513,7 +614,7 @@ activate clops app = do
                               n1 <- Dest.getDestPageNum d1
                               putStrLn $ "going to page: " ++ show n1
                               when (n1 > 0) (writeIORef state $ st {pages = n1 - 1 : pages st})
-                              readIORef state >>= updateUI da pageLabel zoomLabel
+                              readIORef state >>= updateUI toUpdate
                             -- Dest.destFree d1
                             (_, dtype) -> do
                               putStrLn $ "dtype is: " ++ show dtype
@@ -550,20 +651,13 @@ activate clops app = do
 
   hbox.append toolbar
   hbox.append swin
-  window <-
-    new
-      Gtk.ApplicationWindow
-      [ #application := app,
-        #title := T.pack $ pdfFile clops,
-        #child := hbox
-      ]
   controllerKeyPress <-
     new
       Gtk.EventControllerKey
       [ On #keyPressed $ \x _ mdfr -> do
           st <- readIORef state
           case (mdfr, x) of
-            (_, Gdk.KEY_a) -> newBookmarkDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_a) -> newBookmarkDialog window toUpdate state
             (_, Gdk.KEY_c) -> makeAbsolute (pdfFile clops) >>= copyToClipboard
             (_, Gdk.KEY_d) -> makeAbsolute (dDir st) >>= copyToClipboard
             (_, Gdk.KEY_j) -> scrollV swin $ dY conf
@@ -575,22 +669,21 @@ activate clops app = do
             (_, Gdk.KEY_L) -> scrollH swin $ 5 * dX conf
             (_, Gdk.KEY_h) -> scrollH swin $ -dX conf
             (_, Gdk.KEY_H) -> scrollH swin $ -5 * dX conf
-            (_, Gdk.KEY_slash) -> search window da pageLabel zoomLabel clops state
-            (_, Gdk.KEY_g) -> gotoPageDialog window da pageLabel zoomLabel state
+            (_, Gdk.KEY_slash) -> search window toUpdate clops state
+            (_, Gdk.KEY_g) -> gotoPageDialog window toUpdate state
             (_, Gdk.KEY_period) -> writeIORef state $ st {scale = scaleStep conf * scale st}
             (_, Gdk.KEY_comma) -> writeIORef state $ st {scale = scale st / scaleStep conf}
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False da pageLabel zoomLabel clops state
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False toUpdate clops state
             (_, Gdk.KEY_n) -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True da pageLabel zoomLabel clops state
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True toUpdate clops state
             (_, Gdk.KEY_p) -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window da pageLabel zoomLabel state
+            ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window toUpdate state
             ([], Gdk.KEY_t) -> textExtract window conf state
             (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
             ([], Gdk.KEY_F1) -> writeIORef state $ st {showMatches = not $ showMatches st}
             _ -> return ()
 
-          newst <- readIORef state
-          updateUI da pageLabel zoomLabel newst
+          readIORef state >>= updateUI toUpdate
           return True
       ]
 
@@ -609,7 +702,7 @@ main = do
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
     then do
-      conf <- getConfig
+      conf <- getConfig $ mkddirname $ pdfFile clops
       prepSVG (extractPage clops) (overlayLayerID conf)
     else do
       app <-
@@ -618,5 +711,4 @@ main = do
           [ #applicationId := "hdt",
             On #activate (activate clops ?self)
           ]
-
       void $ app.run Nothing
