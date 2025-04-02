@@ -147,7 +147,7 @@ newBookmarkDialog win tu state = do
   entry <-
     new
       Gtk.Entry
-      [ #placeholderText := "page number",
+      [ #placeholderText := "bookmark title",
         On #activate $ do
           putStrLn "activate"
           buf <- Gtk.entryGetBuffer ?self
@@ -237,7 +237,6 @@ gotoBookmarkDialog win tu state = do
   Gtk.widgetAddController dialog controllerKeyPress
   Gtk.widgetSetVisible vbox True
   Gtk.widgetSetVisible dialog True
-  putStrLn "TODO"
 
 gotoPageDialog :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
 gotoPageDialog win tu state = do
