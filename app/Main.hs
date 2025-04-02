@@ -15,7 +15,7 @@ import Data.GI.Base.GError
 import qualified Data.GI.Base.GValue as GV
 import Data.IORef
 import Data.List (find)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as Vec
 import GHC.Int (Int32)
@@ -25,11 +25,13 @@ import qualified GI.Cairo.Structs as CStructs
 import qualified GI.Gdk as Gdk
 import qualified GI.Gdk.Objects.Clipboard as CB
 import qualified GI.Gdk.Objects.Display as GD
+import qualified GI.Gdk.Structs.Rectangle as GdkRect
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Objects.EntryBuffer as GtkBuf
 import qualified GI.Gtk.Objects.Label as GtkLbl
+import qualified GI.Gtk.Objects.Popover as GtkPop
 import qualified GI.Gtk.Objects.TextView as GtkTV
 import qualified GI.Gtk.Objects.Window as GtkWin
 import qualified GI.Poppler.Enums as PopEnums
@@ -326,7 +328,9 @@ data AppState = AppState
     scale :: Double,
     config :: Config,
     matches :: Maybe (Vec.Vector [Rect.Rectangle]),
-    showMatches :: Bool
+    showMatches :: Bool,
+    searchStartedOnPage :: Maybe Int32,
+    poppedUp :: Maybe GtkPop.Popover
   }
 
 scrollV :: Gtk.ScrolledWindow -> Double -> IO ()
@@ -369,12 +373,11 @@ search win tu clops state = do
       Gtk.Entry
       [ #placeholderText := "search",
         On #activate $ do
-          putStrLn "activate"
           buf <- Gtk.entryGetBuffer ?self
           txt <- T.unpack <$> GtkBuf.entryBufferGetText buf
           if null txt
             then do
-              writeIORef state $ st {matches = Nothing, showMatches = False}
+              writeIORef state $ st {matches = Nothing, showMatches = False, searchStartedOnPage = Nothing}
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
             else do
@@ -383,7 +386,7 @@ search win tu clops state = do
                   Vec.generate
                     (fromIntegral $ totalPages st)
                     (PopDoc.documentGetPage (document st) . fromIntegral >=> flip PopPage.pageFindText (T.pack txt))
-              writeIORef state $ st {matches = Just ms, showMatches = True}
+              writeIORef state $ st {matches = Just ms, showMatches = True, searchStartedOnPage = Just (head $ pages st)}
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
       ]
@@ -403,6 +406,16 @@ findNext win searchBackwards tu clops state = do
                 readIORef state >>= updateUI tu
             )
             mNewPage
+    Nothing -> return ()
+
+returnToWhereSearchStarted :: ToUpdate -> IORef AppState -> IO ()
+returnToWhereSearchStarted tu state = do
+  st <- readIORef state
+  case searchStartedOnPage st of
+    Just p -> do
+      let oldpages = pages st
+      writeIORef state $ st {pages = if null oldpages then [p] else p : tail oldpages, showMatches = False}
+      readIORef state >>= updateUI tu
     Nothing -> return ()
 
 mkpdqfname :: String -> String
@@ -433,7 +446,9 @@ activate clops app = do
           pdq = pdq',
           config = conf,
           matches = Nothing,
-          showMatches = False
+          showMatches = False,
+          searchStartedOnPage = Nothing,
+          poppedUp = Nothing
         }
 
   hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
@@ -490,7 +505,7 @@ activate clops app = do
   buttonGoBack <-
     new
       Gtk.Button
-      [ #label := "↩",
+      [ #label := "🔙",
         On
           #clicked
           ( do
@@ -562,6 +577,20 @@ activate clops app = do
           #clicked
           (findNext window True toUpdate clops state)
       ]
+  buttonReturnToWhereSearchStarted <-
+    new
+      Gtk.Button
+      [ #label := "↩",
+        On
+          #clicked
+          (returnToWhereSearchStarted toUpdate state)
+      ]
+  buttonTextExtract <-
+    new
+      Gtk.Button
+      [ #label := "T",
+        On #clicked (textExtract window conf state)
+      ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonPrevPage
   toolbar.append buttonNextPage
@@ -578,7 +607,44 @@ activate clops app = do
   toolbar.append buttonStartSearch
   toolbar.append buttonPrevMatch
   toolbar.append buttonNextMatch
+  toolbar.append buttonReturnToWhereSearchStarted
+  toolbar.append buttonTextExtract
 
+  controllerHover <-
+    new
+      Gtk.EventControllerMotion
+      [ On #motion $ \x y ->
+          do
+            st <- readIORef state
+            let sc = scale st
+            let conf = config st
+            pg <- PopDoc.documentGetPage doc (head $ pages st)
+            (pw, ph) <- PopPage.pageGetSize pg
+            let nts = maybe [] (filter (\t -> notePage t == (fromIntegral . head . pages) st)) $ notes (pdq st)
+            somethingPoppedUp <-
+              sequence
+                [ if x > sc * pw * noteX nt
+                    && x < sc * (pw * noteX nt + markerSize conf)
+                    && y > sc * ph * noteY nt
+                    && y < sc * (ph * noteY nt + markerSize conf)
+                    then do
+                      when (isNothing $ poppedUp st) $ do
+                        lbl <- new Gtk.Label [#label := T.pack (fromMaybe "-" (note nt))]
+                        pop <- new Gtk.Popover [#child := lbl, #autohide := False]
+                        rct <- new GdkRect.Rectangle [#x := round x, #y := round y]
+                        Gtk.widgetSetParent pop da
+                        GtkPop.popoverSetPointingTo pop (Just rct)
+                        writeIORef state $ st {poppedUp = Just pop}
+                        GtkPop.popoverPresent pop
+                        GtkPop.popoverPopup pop
+                      return True
+                    else return False
+                  | nt <- nts
+                ]
+            unless (or somethingPoppedUp) $ do
+              mapM_ GtkPop.popoverPopdown (poppedUp st)
+              writeIORef state (st {poppedUp = Nothing})
+      ]
   controllerMouse <-
     new
       Gtk.GestureClick
@@ -648,6 +714,7 @@ activate clops app = do
             ]
       ]
   Gtk.widgetAddController da controllerMouse
+  Gtk.widgetAddController da controllerHover
 
   hbox.append toolbar
   hbox.append swin
@@ -656,34 +723,40 @@ activate clops app = do
       Gtk.EventControllerKey
       [ On #keyPressed $ \x _ mdfr -> do
           st <- readIORef state
-          case (mdfr, x) of
-            (_, Gdk.KEY_a) -> newBookmarkDialog window toUpdate state
-            (_, Gdk.KEY_c) -> makeAbsolute (pdfFile clops) >>= copyToClipboard
-            (_, Gdk.KEY_d) -> makeAbsolute (dDir st) >>= copyToClipboard
-            (_, Gdk.KEY_j) -> scrollV swin $ dY conf
-            (_, Gdk.KEY_J) -> scrollV swin $ 5 * dY conf
-            (_, Gdk.KEY_k) -> scrollV swin $ -dY conf
-            (_, Gdk.KEY_K) -> scrollV swin $ -5 * dY conf
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_l) -> reload clops state
-            (_, Gdk.KEY_l) -> scrollH swin $ dX conf
-            (_, Gdk.KEY_L) -> scrollH swin $ 5 * dX conf
-            (_, Gdk.KEY_h) -> scrollH swin $ -dX conf
-            (_, Gdk.KEY_H) -> scrollH swin $ -5 * dX conf
-            (_, Gdk.KEY_slash) -> search window toUpdate clops state
-            (_, Gdk.KEY_g) -> gotoPageDialog window toUpdate state
-            (_, Gdk.KEY_period) -> writeIORef state $ st {scale = scaleStep conf * scale st}
-            (_, Gdk.KEY_comma) -> writeIORef state $ st {scale = scale st / scaleStep conf}
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False toUpdate clops state
-            (_, Gdk.KEY_n) -> when (head (pages st) + 1 < totalPages st) (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True toUpdate clops state
-            (_, Gdk.KEY_p) -> when (head (pages st) > 0) (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
-            ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window toUpdate state
-            ([], Gdk.KEY_t) -> textExtract window conf state
-            (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state $ st {pages = tail (pages st)})
-            ([], Gdk.KEY_F1) -> writeIORef state $ st {showMatches = not $ showMatches st}
-            _ -> return ()
-
-          readIORef state >>= updateUI toUpdate
+          let uui = readIORef state >>= updateUI toUpdate
+           in case (mdfr, x) of
+                (_, Gdk.KEY_a) -> newBookmarkDialog window toUpdate state
+                (_, Gdk.KEY_c) -> makeAbsolute (pdfFile clops) >>= copyToClipboard
+                (_, Gdk.KEY_d) -> makeAbsolute (dDir st) >>= copyToClipboard
+                (_, Gdk.KEY_j) -> scrollV swin (dY conf) >> uui
+                (_, Gdk.KEY_J) -> scrollV swin (5 * dY conf) >> uui
+                (_, Gdk.KEY_k) -> scrollV swin (-dY conf) >> uui
+                (_, Gdk.KEY_K) -> scrollV swin (-5 * dY conf) >> uui
+                ([Gdk.ModifierTypeControlMask], Gdk.KEY_l) -> reload clops state >> uui
+                (_, Gdk.KEY_l) -> scrollH swin (dX conf) >> uui
+                (_, Gdk.KEY_L) -> scrollH swin (5 * dX conf) >> uui
+                (_, Gdk.KEY_h) -> scrollH swin (-dX conf) >> uui
+                (_, Gdk.KEY_H) -> scrollH swin (-5 * dX conf) >> uui
+                (_, Gdk.KEY_slash) -> search window toUpdate clops state
+                ([Gdk.ModifierTypeControlMask], Gdk.KEY_g) -> returnToWhereSearchStarted toUpdate state
+                (_, Gdk.KEY_g) -> gotoPageDialog window toUpdate state
+                (_, Gdk.KEY_period) -> writeIORef state (st {scale = scaleStep conf * scale st}) >> uui
+                (_, Gdk.KEY_comma) -> writeIORef state (st {scale = scale st / scaleStep conf}) >> uui
+                ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False toUpdate clops state
+                (_, Gdk.KEY_n) ->
+                  when
+                    (head (pages st) + 1 < totalPages st)
+                    (writeIORef state (st {pages = head (pages st) + 1 : tail (pages st)}) >> uui)
+                ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True toUpdate clops state
+                (_, Gdk.KEY_p) ->
+                  when
+                    (head (pages st) > 0)
+                    (writeIORef state (st {pages = head (pages st) - 1 : tail (pages st)}) >> uui)
+                ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window toUpdate state
+                ([], Gdk.KEY_t) -> textExtract window conf state
+                (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state (st {pages = tail (pages st)}) >> uui)
+                ([], Gdk.KEY_F1) -> writeIORef state (st {showMatches = not $ showMatches st}) >> uui
+                _ -> return ()
           return True
       ]
 

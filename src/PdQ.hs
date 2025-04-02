@@ -20,7 +20,7 @@ bookmarkPickler =
       xpPair xpText (xpAttr "page" xpInt)
 
 data Note = Note
-  { note :: String,
+  { note :: Maybe String,
     noteR :: Int,
     noteG :: Int,
     noteB :: Int,
@@ -36,7 +36,7 @@ notePickler :: PU Note
 notePickler =
   xpElem "note" $
     xpWrap (uncurry7 Note, \n -> (note n, noteR n, noteG n, noteB n, notePage n, noteX n, noteY n)) $
-      xp7Tuple xpText (xpAttr "r" xpInt) (xpAttr "g" xpInt) (xpAttr "b" xpInt) (xpAttr "page" xpInt) (xpAttr "x" xpPrim) (xpAttr "y" xpPrim)
+      xp7Tuple (xpOption xpText) (xpAttr "r" xpInt) (xpAttr "g" xpInt) (xpAttr "b" xpInt) (xpAttr "page" xpInt) (xpAttr "x" xpPrim) (xpAttr "y" xpPrim)
 
 data PdQ = PdQ
   { summary :: Maybe [XmlTree],
