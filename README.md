@@ -102,4 +102,9 @@ To navigate to the bookmark, press the corresponding key. To delete the bookmark
 Notes (as bookmarks) are stored in the `.pdq` file, while annotations are stored in the `.pdf` file itself.
 (Annotations are a standard feature of `PDF` files, while notes are a feature of `hdt`.)
 
-Both are work in progress, for now.
+To add a note, right-click on the document where you want the note marker to be. The dialog will come up.
+If you right-click on an already existing note, the dialog will be pre-filled with the previous note, 
+and on clicking `OK` it will replace it. If you click on `move` instead of `OK`, then the note will disappear from the page,
+but will be remembered, and will come up at the next right-click. This is how to move them.
+
+Annotations are work in progress, for now.
