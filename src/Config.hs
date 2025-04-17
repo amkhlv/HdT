@@ -3,7 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Config
-  ( Config (..),
+  ( Clr (..),
+    Config (..),
     getConfig,
   )
 where
@@ -13,17 +14,24 @@ import qualified Data.Text as T
 import Dhall (Decoder, Generic, Natural, double, field, input, inputFile, list, natural, record, string)
 import System.Directory (doesFileExist, makeAbsolute)
 
+data Clr = Clr {r :: Natural, g :: Natural, b :: Natural} deriving (Generic, Show, Eq)
+
 data Config = Config
   { overlayLayerID :: String,
     initialScale :: Double,
     scaleStep :: Double,
     markerSize :: Double,
+    markerColors :: [Clr],
+    defaultMarkerColor :: Clr,
     dX :: Double,
     dY :: Double,
     windowWidth :: Natural,
     windowHeight :: Natural
   }
   deriving (Generic, Show, Eq)
+
+clr :: Decoder Clr
+clr = record (Clr <$> field "r" natural <*> field "g" natural <*> field "b" natural)
 
 configDecoder :: Decoder Config
 configDecoder =
@@ -33,6 +41,8 @@ configDecoder =
         <*> field "initialScale" double
         <*> field "scaleStep" double
         <*> field "markerSize" double
+        <*> field "markerColors" (list clr)
+        <*> field "defaultMarkerColor" clr
         <*> field "dX" double
         <*> field "dY" double
         <*> field "windowWidth" natural

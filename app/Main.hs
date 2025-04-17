@@ -15,7 +15,7 @@ import Data.GI.Base.GError
 import qualified Data.GI.Base.GValue as GV
 import Data.IORef
 import Data.List (find)
-import Data.Maybe (fromMaybe, isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as Vec
 import GHC.Int (Int32)
@@ -23,6 +23,7 @@ import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
 import qualified GI.Cairo.Structs as CStructs
 import qualified GI.Gdk as Gdk
+import qualified GI.Gdk.Flags as GdkFlags
 import qualified GI.Gdk.Objects.Clipboard as CB
 import qualified GI.Gdk.Objects.Display as GD
 import qualified GI.Gdk.Structs.Rectangle as GdkRect
@@ -46,10 +47,12 @@ import qualified GI.Poppler.Unions.Action as Act
 import qualified GI.Rsvg.Enums as RsvgEnums
 import qualified GI.Rsvg.Objects.Handle as RsvgH
 import qualified GI.Rsvg.Structs.Rectangle as RsvgRect
+import Numeric (showHex)
 import qualified Options.Applicative as Opt
 import PdQ
 import PrepSVG
 import System.Directory
+import Text.Printf (printf)
 import Text.Read (readMaybe)
 
 data Options = Options
@@ -276,6 +279,186 @@ gotoPageDialog win tu state = do
 
   return ()
 
+noteDialog :: Gtk.ApplicationWindow -> Double -> Double -> Maybe Note -> ToUpdate -> IORef AppState -> IO ()
+noteDialog win x y oldnote tu state = do
+  st <- readIORef state
+  dialog <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Note:"]
+  -- Gtk.windowSetDefaultSize dialog 400 300
+  entry <- new Gtk.TextView []
+  Gtk.widgetSetSizeRequest entry 300 200
+  buffer <- GtkTV.textViewGetBuffer entry
+  let onote = if isJust (movingNote st) then movingNote st else oldnote
+  mapM_ (\text -> Gtk.textBufferSetText buffer (T.pack text) (fromIntegral $ length text)) (onote >>= note)
+  vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 6]
+  hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal]
+  hboxColors <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal]
+  -- rgba0 <- new Gdk.RGBA [#red := 1.0, #green := 1.0]
+  -- colorDialog <- new Gtk.ColorDialog [#modal := True]
+  -- colorButton <- new Gtk.ColorDialogButton [#rgba := rgba0, #dialog := colorDialog]
+  noteColor <- newIORef $ case onote of
+    Just nt -> Clr {r = fromIntegral $ noteR nt, g = fromIntegral $ noteG nt, b = fromIntegral $ noteB nt}
+    Nothing -> defaultMarkerColor $ config st
+  let colors = markerColors (config st)
+  unless (null colors) $ do
+    lbl0 <- new Gtk.Label []
+    clrBtn0 <-
+      new
+        Gtk.ToggleButton
+        [ #child := lbl0,
+          On #toggled $ do
+            writeIORef noteColor $ head colors
+        ]
+    Gtk.labelSetMarkup
+      lbl0
+      (T.pack $ printf "<span foreground=\"#%06XFF\">█</span>" (256 * 256 * (r $ head colors) + 256 * (g $ head colors) + (b $ head colors)))
+    print (T.pack $ printf "<span foreground=\"#%06XFF\">█</span>" (256 * 256 * (r $ head colors) + 256 * (g $ head colors) + (b $ head colors)))
+    hboxColors.append clrBtn0
+    sequence_
+      [ do
+          lbl1 <- new Gtk.Label []
+          clrBtn1 <-
+            new
+              Gtk.ToggleButton
+              [ #child := lbl1,
+                On #toggled $ do
+                  writeIORef noteColor $ c
+              ]
+          Gtk.labelSetMarkup
+            lbl1
+            (T.pack $ printf "<span foreground=\"#%06XFF\">█</span>" (256 * 256 * r c + 256 * g c + b c))
+          Gtk.toggleButtonSetGroup clrBtn1 (Just clrBtn0)
+          hboxColors.append clrBtn1
+        | c <- tail colors
+      ]
+
+  okButton <-
+    new
+      Gtk.Button
+      [ #label := "OK",
+        On #clicked $ do
+          startIter <- Gtk.textBufferGetStartIter buffer
+          endIter <- Gtk.textBufferGetEndIter buffer
+          text <- Gtk.textBufferGetText buffer startIter endIter False
+          c <- readIORef noteColor
+
+          let newNote =
+                maybe
+                  ( Note
+                      { notePage = fromIntegral $ head (pages st),
+                        noteX = x,
+                        noteY = y,
+                        noteR = fromIntegral $ r c,
+                        noteG = fromIntegral $ g c,
+                        noteB = fromIntegral $ b c,
+                        note = Just (T.unpack text)
+                      }
+                  )
+                  (\nt -> nt {note = Just (T.unpack text)})
+                  oldnote
+          let newPdQ =
+                (pdq st)
+                  { notes =
+                      Just
+                        ( newNote
+                            : maybe
+                              []
+                              ( filter
+                                  ( \nt -> case onote of
+                                      Just nt0 -> nt /= nt0
+                                      Nothing -> True
+                                  )
+                              )
+                              (notes $ pdq st)
+                        )
+                  }
+          GtkWin.windowDestroy dialog
+          writeIORef state $ st {pdq = newPdQ, movingNote = Nothing}
+          readIORef state >>= updateUI tu
+          savePdQ (pdqFile st) newPdQ
+      ]
+  hbox.append okButton
+  moveButton <-
+    new
+      Gtk.Button
+      [ #label := "move",
+        On #clicked $ do
+          startIter <- Gtk.textBufferGetStartIter buffer
+          endIter <- Gtk.textBufferGetEndIter buffer
+          text <- Gtk.textBufferGetText buffer startIter endIter False
+          c <- readIORef noteColor
+
+          let newNote =
+                maybe
+                  ( Note
+                      { notePage = fromIntegral $ head (pages st),
+                        noteX = x,
+                        noteY = y,
+                        noteR = fromIntegral $ r c,
+                        noteG = fromIntegral $ g c,
+                        noteB = fromIntegral $ b c,
+                        note = Just (T.unpack text)
+                      }
+                  )
+                  (\nt -> nt {note = Just (T.unpack text)})
+                  oldnote
+          let newPdQ =
+                (pdq st)
+                  { notes =
+                      filter
+                        ( \nt -> case oldnote of
+                            Just nt0 -> nt /= nt0
+                            Nothing -> True
+                        )
+                        <$> notes (pdq st)
+                  }
+          GtkWin.windowDestroy dialog
+          writeIORef state $ st {pdq = newPdQ, movingNote = Just newNote}
+          readIORef state >>= updateUI tu
+          savePdQ (pdqFile st) newPdQ
+      ]
+  when (isJust oldnote) $ hbox.append moveButton
+  deleteButton <-
+    new
+      Gtk.Button
+      [ #label := "delete",
+        On #clicked $ do
+          startIter <- Gtk.textBufferGetStartIter buffer
+          endIter <- Gtk.textBufferGetEndIter buffer
+          text <- Gtk.textBufferGetText buffer startIter endIter False
+          c <- readIORef noteColor
+
+          let newPdQ =
+                (pdq st)
+                  { notes =
+                      filter
+                        ( \nt -> case oldnote of
+                            Just nt0 -> nt /= nt0
+                            Nothing -> True
+                        )
+                        <$> notes (pdq st)
+                  }
+          GtkWin.windowDestroy dialog
+          writeIORef state $ st {pdq = newPdQ, movingNote = Nothing}
+          readIORef state >>= updateUI tu
+          savePdQ (pdqFile st) newPdQ
+      ]
+  when (isJust oldnote) $ hbox.append deleteButton
+  cancelButton <-
+    new
+      Gtk.Button
+      [ #label := "cancel",
+        On #clicked $ do
+          GtkWin.windowDestroy dialog
+      ]
+  hbox.append cancelButton
+  vbox.append entry
+  vbox.append hboxColors
+  vbox.append hbox
+  GtkWin.windowSetChild dialog $ Just vbox
+  Gtk.widgetSetVisible entry True
+  Gtk.widgetSetVisible dialog True
+  return ()
+
 mkColor :: Int -> Double
 mkColor x = fromIntegral x / 255.0
 
@@ -329,7 +512,8 @@ data AppState = AppState
     matches :: Maybe (Vec.Vector [Rect.Rectangle]),
     showMatches :: Bool,
     searchStartedOnPage :: Maybe Int32,
-    poppedUp :: Maybe GtkPop.Popover
+    poppedUp :: Maybe GtkPop.Popover,
+    movingNote :: Maybe Note
   }
 
 scrollV :: Gtk.ScrolledWindow -> Double -> IO ()
@@ -423,6 +607,20 @@ mkpdqfname pdfname = reverse $ "qdp" ++ (tail . tail . tail . reverse $ pdfname)
 mkddirname :: String -> String
 mkddirname pdfname = reverse $ "tdh" ++ (tail . tail . tail . reverse $ pdfname)
 
+mouseOverNote :: Double -> Double -> Double -> Double -> Double -> Double -> Int32 -> [Note] -> Maybe Note
+mouseOverNote x y pw ph sc markerSz p allNotes =
+  let notesOnThisPage = filter (\t -> notePage t == fromIntegral p) allNotes
+      overNotes =
+        filter
+          ( \nt ->
+              x > sc * pw * noteX nt
+                && x < sc * (pw * noteX nt + markerSz)
+                && y > sc * ph * noteY nt
+                && y < sc * (ph * noteY nt + markerSz)
+          )
+          notesOnThisPage
+   in listToMaybe overNotes
+
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
   let pdqF = mkpdqfname $ pdfFile clops
@@ -447,7 +645,8 @@ activate clops app = do
           matches = Nothing,
           showMatches = False,
           searchStartedOnPage = Nothing,
-          poppedUp = Nothing
+          poppedUp = Nothing,
+          movingNote = Nothing
         }
 
   hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
@@ -620,36 +819,27 @@ activate clops app = do
             pg <- PopDoc.documentGetPage doc (head $ pages st)
             (pw, ph) <- PopPage.pageGetSize pg
             let nts = maybe [] (filter (\t -> notePage t == (fromIntegral . head . pages) st)) $ notes (pdq st)
-            somethingPoppedUp <-
-              sequence
-                [ if x > sc * pw * noteX nt
-                    && x < sc * (pw * noteX nt + markerSize conf)
-                    && y > sc * ph * noteY nt
-                    && y < sc * (ph * noteY nt + markerSize conf)
-                    then do
-                      when (isNothing $ poppedUp st) $ do
-                        lbl <- new Gtk.Label [#label := T.pack (fromMaybe "-" (note nt))]
-                        pop <- new Gtk.Popover [#child := lbl, #autohide := False]
-                        rct <- new GdkRect.Rectangle [#x := round x, #y := round y]
-                        Gtk.widgetSetParent pop da
-                        GtkPop.popoverSetPointingTo pop (Just rct)
-                        writeIORef state $ st {poppedUp = Just pop}
-                        GtkPop.popoverPresent pop
-                        GtkPop.popoverPopup pop
-                      return True
-                    else return False
-                  | nt <- nts
-                ]
-            unless (or somethingPoppedUp) $ do
-              mapM_ GtkPop.popoverPopdown (poppedUp st)
-              writeIORef state (st {poppedUp = Nothing})
+            let onNote = notes (pdq st) >>= mouseOverNote x y pw ph sc (markerSize conf) (head $ pages st)
+            case onNote of
+              Just nt -> when (isNothing $ poppedUp st) $ do
+                lbl <- new Gtk.Label [#label := T.pack (fromMaybe "-" (note nt))]
+                pop <- new Gtk.Popover [#child := lbl, #autohide := False]
+                rct <- new GdkRect.Rectangle [#x := round x, #y := round y]
+                Gtk.widgetSetParent pop da
+                GtkPop.popoverSetPointingTo pop (Just rct)
+                writeIORef state $ st {poppedUp = Just pop}
+                GtkPop.popoverPresent pop
+                GtkPop.popoverPopup pop
+              Nothing -> do
+                mapM_ GtkPop.popoverPopdown (poppedUp st)
+                writeIORef state (st {poppedUp = Nothing})
       ]
   controllerMouse <-
     new
       Gtk.GestureClick
       [ On #pressed $ \_nclicks x y -> do
-          p <- readIORef state >>= PopDoc.documentGetPage doc . head . pages
           st <- readIORef state
+          p <- PopDoc.documentGetPage doc (head $ pages st)
           (_width, height) <- PopPage.pageGetSize p
           let s = scale st
           links <- PopPage.pageGetLinkMapping p
@@ -714,6 +904,27 @@ activate clops app = do
       ]
   Gtk.widgetAddController da controllerMouse
   Gtk.widgetAddController da controllerHover
+  controllerMouseRightClick <-
+    new
+      Gtk.GestureClick
+      [ On #pressed $ \_nclicks x y -> do
+          ev <- Gtk.eventControllerGetCurrentEvent ?self
+          modifier <- mapM Gdk.eventGetModifierState ev
+          let shiftPressed = maybe False (elem GdkFlags.ModifierTypeShiftMask) modifier
+          when shiftPressed $ putStrLn "=== SHIFT ==="
+          st <- readIORef state
+          let sc = scale st
+          let conf = config st
+          p <- PopDoc.documentGetPage doc (head $ pages st)
+          (pw, ph) <- PopPage.pageGetSize p
+          let onNote = notes (pdq st) >>= mouseOverNote x y pw ph sc (markerSize conf) (head $ pages st)
+          noteDialog window (x / pw / sc) (y / ph / sc) onNote toUpdate state
+          putStrLn $ "right click" ++ show x ++ " " ++ show y
+          print onNote
+      ]
+  Gtk.gestureSingleSetButton controllerMouseRightClick 3
+
+  Gtk.widgetAddController da controllerMouseRightClick
 
   hbox.append toolbar
   hbox.append swin
