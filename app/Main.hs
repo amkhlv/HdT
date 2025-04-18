@@ -513,7 +513,8 @@ data AppState = AppState
     showMatches :: Bool,
     searchStartedOnPage :: Maybe Int32,
     poppedUp :: Maybe GtkPop.Popover,
-    movingNote :: Maybe Note
+    movingNote :: Maybe Note,
+    prevXY :: Maybe (Double, Double)
   }
 
 scrollV :: Gtk.ScrolledWindow -> Double -> IO ()
@@ -646,7 +647,8 @@ activate clops app = do
           showMatches = False,
           searchStartedOnPage = Nothing,
           poppedUp = Nothing,
-          movingNote = Nothing
+          movingNote = Nothing,
+          prevXY = Nothing
         }
 
   hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
@@ -813,26 +815,37 @@ activate clops app = do
       Gtk.EventControllerMotion
       [ On #motion $ \x y ->
           do
+            ev <- Gtk.eventControllerGetCurrentEvent ?self
+            modifier <- mapM Gdk.eventGetModifierState ev
+            let rightButtonPressed = maybe False (elem GdkFlags.ModifierTypeButton1Mask) modifier
             st <- readIORef state
-            let sc = scale st
-            let conf = config st
-            pg <- PopDoc.documentGetPage doc (head $ pages st)
-            (pw, ph) <- PopPage.pageGetSize pg
-            let nts = maybe [] (filter (\t -> notePage t == (fromIntegral . head . pages) st)) $ notes (pdq st)
-            let onNote = notes (pdq st) >>= mouseOverNote x y pw ph sc (markerSize conf) (head $ pages st)
-            case onNote of
-              Just nt -> when (isNothing $ poppedUp st) $ do
-                lbl <- new Gtk.Label [#label := T.pack (fromMaybe "-" (note nt))]
-                pop <- new Gtk.Popover [#child := lbl, #autohide := False]
-                rct <- new GdkRect.Rectangle [#x := round x, #y := round y]
-                Gtk.widgetSetParent pop da
-                GtkPop.popoverSetPointingTo pop (Just rct)
-                writeIORef state $ st {poppedUp = Just pop}
-                GtkPop.popoverPresent pop
-                GtkPop.popoverPopup pop
-              Nothing -> do
-                mapM_ GtkPop.popoverPopdown (poppedUp st)
-                writeIORef state (st {poppedUp = Nothing})
+            if rightButtonPressed -- scrolling
+              then case prevXY st of
+                Just (xPrev, yPrev) -> do
+                  scrollH swin $ (xPrev - x) / 2.0
+                  scrollV swin $ (yPrev - y) / 2.0
+                  writeIORef state (st {prevXY = Just (x, y)})
+                Nothing -> writeIORef state (st {prevXY = Just (x, y)})
+              else do
+                let sc = scale st
+                let conf = config st
+                pg <- PopDoc.documentGetPage doc (head $ pages st)
+                (pw, ph) <- PopPage.pageGetSize pg
+                let nts = maybe [] (filter (\t -> notePage t == (fromIntegral . head . pages) st)) $ notes (pdq st)
+                let onNote = notes (pdq st) >>= mouseOverNote x y pw ph sc (markerSize conf) (head $ pages st)
+                case onNote of
+                  Just nt -> when (isNothing $ poppedUp st) $ do
+                    lbl <- new Gtk.Label [#label := T.pack (fromMaybe "-" (note nt))]
+                    pop <- new Gtk.Popover [#child := lbl, #autohide := False]
+                    rct <- new GdkRect.Rectangle [#x := round x, #y := round y]
+                    Gtk.widgetSetParent pop da
+                    GtkPop.popoverSetPointingTo pop (Just rct)
+                    writeIORef state $ st {poppedUp = Just pop}
+                    GtkPop.popoverPresent pop
+                    GtkPop.popoverPopup pop
+                  Nothing -> do
+                    mapM_ GtkPop.popoverPopdown (poppedUp st)
+                    writeIORef state (st {poppedUp = Nothing})
       ]
   controllerMouse <-
     new
@@ -901,6 +914,7 @@ activate clops app = do
               | -- mapM_ Act.actionFree action
                 link <- links
             ]
+          modifyIORef state (\s -> s {prevXY = Just (x, y)})
       ]
   Gtk.widgetAddController da controllerMouse
   Gtk.widgetAddController da controllerHover
