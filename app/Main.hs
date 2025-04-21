@@ -822,10 +822,15 @@ activate clops app = do
             if rightButtonPressed -- scrolling
               then case prevXY st of
                 Just (xPrev, yPrev) -> do
-                  scrollH swin $ (xPrev - x) / 2.0
-                  scrollV swin $ (yPrev - y) / 2.0
-                  writeIORef state (st {prevXY = Just (x, y)})
-                Nothing -> writeIORef state (st {prevXY = Just (x, y)})
+                  x0 <- Gtk.scrolledWindowGetHadjustment swin >>= Gtk.adjustmentGetValue
+                  y0 <- Gtk.scrolledWindowGetVadjustment swin >>= Gtk.adjustmentGetValue
+                  scrollH swin $ (xPrev - (x - x0))
+                  scrollV swin $ (yPrev - (y - y0))
+                  writeIORef state (st {prevXY = Just (x - x0, y - y0)})
+                Nothing -> do
+                  x0 <- Gtk.scrolledWindowGetHadjustment swin >>= Gtk.adjustmentGetValue
+                  y0 <- Gtk.scrolledWindowGetVadjustment swin >>= Gtk.adjustmentGetValue
+                  writeIORef state (st {prevXY = Just (x - x0, y - y0)})
               else do
                 let sc = scale st
                 let conf = config st
@@ -914,7 +919,9 @@ activate clops app = do
               | -- mapM_ Act.actionFree action
                 link <- links
             ]
-          modifyIORef state (\s -> s {prevXY = Just (x, y)})
+          x0 <- Gtk.scrolledWindowGetHadjustment swin >>= Gtk.adjustmentGetValue
+          y0 <- Gtk.scrolledWindowGetVadjustment swin >>= Gtk.adjustmentGetValue
+          modifyIORef state (\s -> s {prevXY = Just (x - x0, y - y0)})
       ]
   Gtk.widgetAddController da controllerMouse
   Gtk.widgetAddController da controllerHover
