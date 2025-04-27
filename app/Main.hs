@@ -683,7 +683,8 @@ activate clops app = do
               when
                 (head (pages st) < totalPages st - 1)
                 ( (writeIORef state $ st {pages = head (pages st) + 1 : tail (pages st)})
-                    >> updateUI toUpdate st
+                    >> readIORef state
+                    >>= updateUI toUpdate
                 )
           )
       ]
@@ -698,7 +699,8 @@ activate clops app = do
               when
                 (head (pages st) > 0)
                 ( (writeIORef state $ st {pages = head (pages st) - 1 : tail (pages st)})
-                    >> updateUI toUpdate st
+                    >> readIORef state
+                    >>= updateUI toUpdate
                 )
           )
       ]
@@ -713,7 +715,8 @@ activate clops app = do
               when
                 (length (pages st) > 1)
                 ( (writeIORef state $ st {pages = tail (pages st)})
-                    >> updateUI toUpdate st
+                    >> readIORef state
+                    >>= updateUI toUpdate
                 )
           )
       ]
@@ -727,7 +730,7 @@ activate clops app = do
               st <- readIORef state
               let newScale = scale st * scaleStep conf
               writeIORef state $ st {scale = newScale}
-              updateUI toUpdate st
+              readIORef state >>= updateUI toUpdate
           )
       ]
   buttonZoomOut <-
@@ -740,7 +743,7 @@ activate clops app = do
               st <- readIORef state
               let newScale = scale st / scaleStep conf
               writeIORef state $ st {scale = newScale}
-              updateUI toUpdate st
+              readIORef state >>= updateUI toUpdate
           )
       ]
   window <-
@@ -810,7 +813,7 @@ activate clops app = do
   toolbar.append buttonReturnToWhereSearchStarted
   toolbar.append buttonTextExtract
 
-  controllerHover <-
+  controllerMouseMove <-
     new
       Gtk.EventControllerMotion
       [ On #motion $ \x y ->
@@ -852,7 +855,7 @@ activate clops app = do
                     mapM_ GtkPop.popoverPopdown (poppedUp st)
                     writeIORef state (st {poppedUp = Nothing})
       ]
-  controllerMouse <-
+  controllerMouseClick <-
     new
       Gtk.GestureClick
       [ On #pressed $ \_nclicks x y -> do
@@ -879,9 +882,17 @@ activate clops app = do
                           dest <- AGD.getActionGotoDestDest goTo
                           destType <- mapM Dest.getDestType dest
                           name <- join <$> mapM Dest.getDestNamedDest dest
+                          pnum <- mapM Dest.getDestPageNum dest
+
                           case (name, destType) of
                             (Nothing, _) -> do
                               putStrLn $ "Link destination DestType is: " ++ show destType
+                              case pnum of
+                                Just n1 -> do
+                                  putStrLn $ "going to page: " ++ show n1
+                                  when (n1 > 0) (writeIORef state $ st {pages = n1 - 1 : pages st})
+                                  readIORef state >>= updateUI toUpdate
+                                Nothing -> putStrLn $ "Unknown destination page number"
                             (Just name1, Just PopEnums.DestTypeNamed) -> do
                               d1 <- PopDoc.documentFindDest doc name1
                               n1 <- Dest.getDestPageNum d1
@@ -923,8 +934,8 @@ activate clops app = do
           y0 <- Gtk.scrolledWindowGetVadjustment swin >>= Gtk.adjustmentGetValue
           modifyIORef state (\s -> s {prevXY = Just (x - x0, y - y0)})
       ]
-  Gtk.widgetAddController da controllerMouse
-  Gtk.widgetAddController da controllerHover
+  Gtk.widgetAddController da controllerMouseClick
+  Gtk.widgetAddController da controllerMouseMove
   controllerMouseRightClick <-
     new
       Gtk.GestureClick
