@@ -18,6 +18,7 @@ Configuration
 -------------
 
 The sample configuration file `hdt.dhall` should be copied to `~/.config/hdt/config.dhall`.
+The style file `style.css` should be copied to `~/.config/hdt/style.css`
 
 
 Use
