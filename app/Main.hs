@@ -777,7 +777,7 @@ activate clops app = do
   buttonNextMatch <-
     new
       Gtk.Button
-      [ #label := "𝒩",
+      [ #label := "⏭",
         On
           #clicked
           (findNext window False toUpdate clops state)
@@ -785,7 +785,7 @@ activate clops app = do
   buttonPrevMatch <-
     new
       Gtk.Button
-      [ #label := "𝒫",
+      [ #label := "⏮",
         On
           #clicked
           (findNext window True toUpdate clops state)
@@ -793,7 +793,7 @@ activate clops app = do
   buttonReturnToWhereSearchStarted <-
     new
       Gtk.Button
-      [ #label := "↩",
+      [ #label := "✖",
         On
           #clicked
           (returnToWhereSearchStarted toUpdate state)
@@ -804,7 +804,14 @@ activate clops app = do
       [ #label := "T",
         On #clicked (textExtract window conf state)
       ]
+  buttonReload <-
+    new
+      Gtk.Button
+      [ #label := "↺",
+        On #clicked (reload clops state)
+      ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
+  toolbar.append buttonReload
   toolbar.append buttonPrevPage
   toolbar.append buttonNextPage
   toolbar.append buttonGoBack
@@ -1027,7 +1034,7 @@ main = do
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
     then do
-      conf <- getConfig (mkddirname $ pdfFile clops)
+      conf <- getConfig "."
       prepSVG (extractPage clops) (overlayLayerID conf)
     else do
       app <-
