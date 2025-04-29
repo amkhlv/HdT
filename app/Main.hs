@@ -23,6 +23,7 @@ import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
 import qualified GI.Cairo.Structs as CStructs
 import qualified GI.Gdk as Gdk
+import qualified GI.Gdk.Constants as GdkConst
 import qualified GI.Gdk.Flags as GdkFlags
 import qualified GI.Gdk.Objects.Clipboard as CB
 import qualified GI.Gdk.Objects.Display as GD
@@ -629,12 +630,12 @@ activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
   mdisplay <- GD.displayGetDefault
   provider <- new GtkProvider.CssProvider []
-  cssFile <- getCSSFile
+  cssFile <- getCSSFile (mkddirname $ pdfFile clops)
   Gtk.cssProviderLoadFromFile provider cssFile
   mapM_ (\disp -> GtkStyleContext.styleContextAddProviderForDisplay disp provider $ fromIntegral GtkConst.STYLE_PROVIDER_PRIORITY_USER - 1) mdisplay
   let pdqF = mkpdqfname $ pdfFile clops
   let pdqD = mkddirname $ pdfFile clops
-  conf <- getConfig $ pdqD
+  conf <- getConfig pdqD
   doesFileExist pdqF >>= flip unless (savePdQ pdqF def)
   pdq' <- getPdQ pdqF
   print pdq'
@@ -963,7 +964,7 @@ activate clops app = do
           putStrLn $ "right click" ++ show x ++ " " ++ show y
           print onNote
       ]
-  Gtk.gestureSingleSetButton controllerMouseRightClick 3
+  Gtk.gestureSingleSetButton controllerMouseRightClick $ fromIntegral GdkConst.BUTTON_SECONDARY
 
   Gtk.widgetAddController da controllerMouseRightClick
 
@@ -1026,7 +1027,7 @@ main = do
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
     then do
-      conf <- getConfig ""
+      conf <- getConfig (mkddirname $ pdfFile clops)
       prepSVG (extractPage clops) (overlayLayerID conf)
     else do
       app <-

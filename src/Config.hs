@@ -61,7 +61,9 @@ getConfig dDir = do
       input configDecoder (T.pack $ "~/.config/hdt/config.dhall // " ++ d ++ "/config.dhall")
     else input configDecoder "~/.config/hdt/config.dhall"
 
-getCSSFile :: IO GFile.File
-getCSSFile = do
+getCSSFile :: String -> IO GFile.File
+getCSSFile dDir = do
+  d <- makeAbsolute dDir
+  cssFileInDDir <- doesFileExist (d ++ "/style.css")
   home <- getHomeDirectory
-  GFile.fileNewForPath $ home ++ "/.config/hdt/style.css"
+  GFile.fileNewForPath (if cssFileInDDir then d ++ "/style.css" else home ++ "/.config/hdt/style.css")
