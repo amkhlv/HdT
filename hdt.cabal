@@ -34,6 +34,7 @@ library
         dhall,
         directory,
         shh,
+        gi-gio,
         PyF
 
     hs-source-dirs:   src

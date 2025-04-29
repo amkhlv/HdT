@@ -6,13 +6,15 @@ module Config
   ( Clr (..),
     Config (..),
     getConfig,
+    getCSSFile,
   )
 where
 
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Dhall (Decoder, Generic, Natural, double, field, input, inputFile, list, natural, record, string)
-import System.Directory (doesFileExist, makeAbsolute)
+import qualified GI.Gio.Interfaces.File as GFile
+import System.Directory (doesFileExist, getHomeDirectory, makeAbsolute)
 
 data Clr = Clr {r :: Natural, g :: Natural, b :: Natural} deriving (Generic, Show, Eq)
 
@@ -58,3 +60,8 @@ getConfig dDir = do
       putStrLn $ "-- loading extra config file:" ++ d ++ "/config.dhall"
       input configDecoder (T.pack $ "~/.config/hdt/config.dhall // " ++ d ++ "/config.dhall")
     else input configDecoder "~/.config/hdt/config.dhall"
+
+getCSSFile :: IO GFile.File
+getCSSFile = do
+  home <- getHomeDirectory
+  GFile.fileNewForPath $ home ++ "/.config/hdt/style.css"

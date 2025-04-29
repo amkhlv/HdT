@@ -30,9 +30,12 @@ import qualified GI.Gdk.Structs.Rectangle as GdkRect
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
 import qualified GI.Gtk as Gtk
+import qualified GI.Gtk.Constants as GtkConst
+import qualified GI.Gtk.Objects.CssProvider as GtkProvider
 import qualified GI.Gtk.Objects.EntryBuffer as GtkBuf
 import qualified GI.Gtk.Objects.Label as GtkLbl
 import qualified GI.Gtk.Objects.Popover as GtkPop
+import qualified GI.Gtk.Objects.StyleContext as GtkStyleContext
 import qualified GI.Gtk.Objects.TextView as GtkTV
 import qualified GI.Gtk.Objects.Window as GtkWin
 import qualified GI.Poppler.Enums as PopEnums
@@ -624,6 +627,11 @@ mouseOverNote x y pw ph sc markerSz p allNotes =
 
 activate :: Options -> Gtk.Application -> IO ()
 activate clops app = do
+  mdisplay <- GD.displayGetDefault
+  provider <- new GtkProvider.CssProvider []
+  cssFile <- getCSSFile
+  Gtk.cssProviderLoadFromFile provider cssFile
+  mapM_ (\disp -> GtkStyleContext.styleContextAddProviderForDisplay disp provider $ fromIntegral GtkConst.STYLE_PROVIDER_PRIORITY_USER - 1) mdisplay
   let pdqF = mkpdqfname $ pdfFile clops
   let pdqD = mkddirname $ pdfFile clops
   conf <- getConfig $ pdqD
@@ -657,6 +665,7 @@ activate clops app = do
     new
       Gtk.DrawingArea
       [#name := "da"]
+  Gtk.widgetAddCssClass da "main-area"
   view <- new Gtk.Viewport [#child := da, #hexpand := True]
   swin <- new Gtk.ScrolledWindow [#child := view, #hexpand := True]
 
