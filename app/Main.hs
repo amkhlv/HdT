@@ -325,7 +325,7 @@ noteDialog win x y oldnote tu state = do
               Gtk.ToggleButton
               [ #child := lbl1,
                 On #toggled $ do
-                  writeIORef noteColor $ c
+                  writeIORef noteColor c
               ]
           Gtk.labelSetMarkup
             lbl1
@@ -357,7 +357,14 @@ noteDialog win x y oldnote tu state = do
                         note = Just (T.unpack text)
                       }
                   )
-                  (\nt -> nt {note = Just (T.unpack text)})
+                  ( \nt ->
+                      nt
+                        { note = Just (T.unpack text),
+                          noteR = fromIntegral $ r c,
+                          noteG = fromIntegral $ g c,
+                          noteB = fromIntegral $ b c
+                        }
+                  )
                   oldnote
           let newPdQ =
                 (pdq st)
