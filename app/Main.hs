@@ -283,6 +283,37 @@ gotoPageDialog win tu state = do
 
   return ()
 
+dashboard :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
+dashboard win tu state =
+  do
+    st <- readIORef state
+    vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 6]
+    panel <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Notes:", #child := vbox]
+    sequence_
+      [ let notesOnPage = filter (\nt -> notePage nt == fromIntegral p - 1) $ fromMaybe [] (notes $ pdq st)
+         in unless (null notesOnPage) $ do
+              hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal]
+              sequence_
+                [ do
+                    lbl0 <- new Gtk.Label []
+                    Gtk.labelSetMarkup
+                      lbl0
+                      (T.pack $ printf "<span foreground=\"#%06XFF\">█</span>" (256 * 256 * noteR nt + 256 * noteG nt + noteB nt))
+                    btn <-
+                      new
+                        Gtk.Button
+                        [ #child := lbl0,
+                          On #clicked $ do
+                            print nt
+                        ]
+                    hbox.append btn
+                  | nt <- notesOnPage
+                ]
+              vbox.append hbox
+        | p <- [1 .. totalPages st]
+      ]
+    Gtk.widgetSetVisible panel True
+
 noteDialog :: Gtk.ApplicationWindow -> Double -> Double -> Maybe Note -> ToUpdate -> IORef AppState -> IO ()
 noteDialog win x y oldnote tu state = do
   st <- readIORef state
@@ -817,6 +848,14 @@ activate clops app = do
       [ #label := "↺",
         On #clicked (reload clops state)
       ]
+  buttonDashboard <-
+    new
+      Gtk.Button
+      [ #label := "📋",
+        On
+          #clicked
+          (dashboard window toUpdate state)
+      ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonReload
   toolbar.append buttonPrevPage
@@ -836,6 +875,7 @@ activate clops app = do
   toolbar.append buttonNextMatch
   toolbar.append buttonReturnToWhereSearchStarted
   toolbar.append buttonTextExtract
+  toolbar.append buttonDashboard
 
   controllerMouseMove <-
     new
