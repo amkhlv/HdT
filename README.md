@@ -17,8 +17,7 @@ To build and install `hdt`, run `cabal install` in this directory.
 Configuration
 -------------
 
-The sample configuration file `hdt.dhall` should be copied to `~/.config/hdt/config.dhall`.
-The style file `style.css` should be copied to `~/.config/hdt/style.css`
+The sample configuration files `sample-config/` should be copied to `~/.config/hdt/`.
 
 
 Use

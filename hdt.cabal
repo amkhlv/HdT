@@ -21,7 +21,8 @@ library
     exposed-modules:
       PdQ,
       Config,
-      PrepSVG
+      PrepSVG,
+      Utils
     -- other-modules:
     -- other-extensions:
     build-depends:

@@ -28,8 +28,11 @@ import qualified GI.Gdk.Flags as GdkFlags
 import qualified GI.Gdk.Objects.Clipboard as CB
 import qualified GI.Gdk.Objects.Display as GD
 import qualified GI.Gdk.Structs.Rectangle as GdkRect
+import qualified GI.Gio.Callbacks as GCallbacks
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
+import qualified GI.Gio.Objects.Cancellable as GCancellable
+import qualified GI.Gio.Objects.Task as GTask
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Constants as GtkConst
 import qualified GI.Gtk.Objects.CssProvider as GtkProvider
@@ -38,6 +41,7 @@ import qualified GI.Gtk.Objects.Label as GtkLbl
 import qualified GI.Gtk.Objects.Popover as GtkPop
 import qualified GI.Gtk.Objects.StyleContext as GtkStyleContext
 import qualified GI.Gtk.Objects.TextView as GtkTV
+import qualified GI.Gtk.Objects.Tooltip as GtkTooltip
 import qualified GI.Gtk.Objects.Window as GtkWin
 import qualified GI.Poppler.Enums as PopEnums
 import qualified GI.Poppler.Objects.Document as PopDoc
@@ -58,6 +62,7 @@ import PrepSVG
 import System.Directory
 import Text.Printf (printf)
 import Text.Read (readMaybe)
+import Utils
 
 data Options = Options
   { extractPage :: Int,
@@ -304,14 +309,26 @@ dashboard win tu state =
                         Gtk.Button
                         [ #child := lbl0,
                           On #clicked $ do
+                            let newSt = st {pages = fromIntegral (notePage nt) : pages st}
+                            writeIORef state newSt
+                            readIORef state >>= updateUI tu
                             print nt
                         ]
+                    Gtk.widgetSetTooltipText btn (T.pack <$> note nt)
                     hbox.append btn
                   | nt <- notesOnPage
                 ]
               vbox.append hbox
         | p <- [1 .. totalPages st]
       ]
+    okBtn <-
+      new
+        Gtk.Button
+        [ #label := "OK",
+          On #clicked $ do
+            GtkWin.windowDestroy panel
+        ]
+    vbox.append okBtn
     Gtk.widgetSetVisible panel True
 
 noteDialog :: Gtk.ApplicationWindow -> Double -> Double -> Maybe Note -> ToUpdate -> IORef AppState -> IO ()
@@ -856,6 +873,15 @@ activate clops app = do
           #clicked
           (dashboard window toUpdate state)
       ]
+  buttonOpenPdQ <-
+    new
+      Gtk.Button
+      [ #label := "pdq",
+        On #clicked $ do
+          cancellable <- GCancellable.cancellableGetCurrent
+          task <- GTask.taskNew (Just ?self) cancellable Nothing
+          GTask.taskRunInThread task (\tsk obj dat mcanc -> readIORef state >>= (openEditor . pdqFile))
+      ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonReload
   toolbar.append buttonPrevPage
@@ -876,6 +902,7 @@ activate clops app = do
   toolbar.append buttonReturnToWhereSearchStarted
   toolbar.append buttonTextExtract
   toolbar.append buttonDashboard
+  toolbar.append buttonOpenPdQ
 
   controllerMouseMove <-
     new
