@@ -694,8 +694,8 @@ activate clops app = do
   doesFileExist pdqF >>= flip unless (savePdQ pdqF def)
   pdq' <- getPdQ pdqF
   print pdq'
-  doc <- getDoc clops
-  npages <- PopDoc.documentGetNPages doc
+  doc0 <- getDoc clops
+  npages <- PopDoc.documentGetNPages doc0
   state <-
     newIORef $
       AppState
@@ -704,7 +704,7 @@ activate clops app = do
           pages = [fromIntegral clops.openPage - 1],
           totalPages = npages,
           scale = initialScale conf,
-          document = doc,
+          document = doc0,
           pdq = pdq',
           config = conf,
           matches = Nothing,
@@ -928,6 +928,7 @@ activate clops app = do
               else do
                 let sc = scale st
                 let conf = config st
+                let doc = document st
                 pg <- PopDoc.documentGetPage doc (head $ pages st)
                 (pw, ph) <- PopPage.pageGetSize pg
                 let nts = maybe [] (filter (\t -> notePage t == (fromIntegral . head . pages) st)) $ notes (pdq st)
@@ -951,7 +952,7 @@ activate clops app = do
       Gtk.GestureClick
       [ On #pressed $ \_nclicks x y -> do
           st <- readIORef state
-          p <- PopDoc.documentGetPage doc (head $ pages st)
+          p <- PopDoc.documentGetPage (document st) (head $ pages st)
           (_width, height) <- PopPage.pageGetSize p
           let s = scale st
           links <- PopPage.pageGetLinkMapping p
@@ -985,7 +986,7 @@ activate clops app = do
                                   readIORef state >>= updateUI toUpdate
                                 Nothing -> putStrLn $ "Unknown destination page number"
                             (Just name1, Just PopEnums.DestTypeNamed) -> do
-                              d1 <- PopDoc.documentFindDest doc name1
+                              d1 <- PopDoc.documentFindDest (document st) name1
                               n1 <- Dest.getDestPageNum d1
                               putStrLn $ "going to page: " ++ show n1
                               when (n1 > 0) (writeIORef state $ st {pages = n1 - 1 : pages st})
@@ -1038,7 +1039,7 @@ activate clops app = do
           st <- readIORef state
           let sc = scale st
           let conf = config st
-          p <- PopDoc.documentGetPage doc (head $ pages st)
+          p <- PopDoc.documentGetPage (document st) (head $ pages st)
           (pw, ph) <- PopPage.pageGetSize p
           let onNote = notes (pdq st) >>= mouseOverNote x y pw ph sc (markerSize conf) (head $ pages st)
           noteDialog window (x / pw / sc) (y / ph / sc) onNote toUpdate state
