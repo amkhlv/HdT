@@ -49,6 +49,8 @@ To create an __SVG overlay__ over page 3, do this:
     hdt -e 3
     inkscape p3.svg &
 
+There is also the ✍ button, which automates this.
+
 While drawing in Inkscape, make sure that you draw on the layer with the id: `layer1`. This should be automatic, just double-check.
 It is the `layer1` that becomes the overlay, when viewing the `paper.pdf`.
 The overlays are all in `paper.hdt/`, named `p<n>.svg`, where `n` is the page number.

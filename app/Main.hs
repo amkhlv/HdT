@@ -856,14 +856,14 @@ activate clops app = do
   buttonTextExtract <-
     new
       Gtk.Button
-      [ #label := "T",
+      [ #label := "txt",
         On #clicked (textExtract window conf state)
       ]
   buttonReload <-
     new
       Gtk.Button
       [ #label := "↺",
-        On #clicked (reload clops state)
+        On #clicked (reload clops state >> readIORef state >>= updateUI toUpdate)
       ]
   buttonDashboard <-
     new
@@ -881,6 +881,22 @@ activate clops app = do
           cancellable <- GCancellable.cancellableGetCurrent
           task <- GTask.taskNew (Just ?self) cancellable Nothing
           GTask.taskRunInThread task (\tsk obj dat mcanc -> readIORef state >>= (openEditor . pdqFile))
+      ]
+  buttonOpenInkscape <-
+    new
+      Gtk.Button
+      [ #label := "✍",
+        On #clicked $ do
+          putStrLn "hi"
+          cancellable <- GCancellable.cancellableGetCurrent
+          task <- GTask.taskNew (Just ?self) cancellable Nothing
+          GTask.taskRunInThread
+            task
+            ( \tsk obj dat mcanc -> do
+                st <- readIORef state
+                svg <- prepSVG (1 + fromIntegral (head $ pages st)) (overlayLayerID conf) (Just $ dDir st)
+                openInkscape svg
+            )
       ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonReload
@@ -903,6 +919,7 @@ activate clops app = do
   toolbar.append buttonTextExtract
   toolbar.append buttonDashboard
   toolbar.append buttonOpenPdQ
+  toolbar.append buttonOpenInkscape
 
   controllerMouseMove <-
     new
@@ -1110,7 +1127,8 @@ main = do
   if extractPage clops > 0
     then do
       conf <- getConfig "."
-      prepSVG (extractPage clops) (overlayLayerID conf)
+      _ <- prepSVG (extractPage clops) (overlayLayerID conf) Nothing
+      return ()
     else do
       app <-
         new
