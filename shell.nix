@@ -26,16 +26,15 @@ mkShell rec {
               libepoxy
               icu
               gmp
-              zlib              
+              zlib
               haskellPackages.zlib
               haskellPackages.gi-gtk_4
               librsvg
-              libselinux
-              libsepol
               poppler
               poppler_gi
-              libsysprof-capture
-              lerc
   ];
+   nativeBuildInputs = [
+     wrapGAppsHook4
+   ];
   LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
 }
