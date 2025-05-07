@@ -53,10 +53,11 @@ There is also the ✍ button, which automates this.
 
 While drawing in Inkscape, make sure that you draw on the layer with the id: `layer1`. 
 This should be automatic, just double-check.
-The layer has name `hdt` and id `layer1`; if you look inside `.svg` file the tag should be something like:
+The layer has label `hdt` and id `layer1`; if you look inside the `p<n>.svg` file the tag should be something like:
 
     <g inkscape:label="hdt" inkscape:groupmode="layer" id="layer1">
 
+Inkscape, in its  layers' panel, shows label (not id), so it will be called `hdt` in the layer's panel.
 It is the `layer1` that becomes the overlay, when viewing the `paper.pdf`.
 The overlays are all in `paper.hdt/`, named `p<n>.svg`, where `n` is the page number.
 
