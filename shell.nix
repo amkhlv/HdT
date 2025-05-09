@@ -32,6 +32,10 @@ mkShell rec {
               librsvg
               poppler
               poppler_gi
+              libsysprof-capture
+              libselinux
+              libsepol
+              lerc
   ];
    nativeBuildInputs = [
      wrapGAppsHook4
