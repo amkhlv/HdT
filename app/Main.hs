@@ -31,7 +31,6 @@ import qualified GI.Gdk.Structs.Rectangle as GdkRect
 import qualified GI.Gio.Callbacks as GCallbacks
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
-import qualified GI.Gio.Objects.Cancellable as GCancellable
 import qualified GI.Gio.Objects.Task as GTask
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Constants as GtkConst
@@ -878,8 +877,8 @@ activate clops app = do
       Gtk.Button
       [ #label := "pdq",
         On #clicked $ do
-          cancellable <- GCancellable.cancellableGetCurrent
-          task <- GTask.taskNew (Just ?self) cancellable Nothing
+          -- cancellable <- GCancellable.cancellableGetCurrent
+          task <- GTask.taskNew (Just ?self) (Nothing :: Maybe Cancellable) Nothing
           GTask.taskRunInThread task (\tsk obj dat mcanc -> readIORef state >>= (openEditor . pdqFile))
       ]
   buttonOpenInkscape <-
@@ -888,8 +887,8 @@ activate clops app = do
       [ #label := "✍",
         On #clicked $ do
           putStrLn "hi"
-          cancellable <- GCancellable.cancellableGetCurrent
-          task <- GTask.taskNew (Just ?self) cancellable Nothing
+          -- cancellable <- GCancellable.cancellableGetCurrent
+          task <- GTask.taskNew (Just ?self) (Nothing :: Maybe Cancellable) Nothing
           GTask.taskRunInThread
             task
             ( \tsk obj dat mcanc -> do
