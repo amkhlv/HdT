@@ -84,18 +84,18 @@ getDoc clops = do
   pdfGFile <- getGFile clops
   PopDoc.documentNewFromGfile pdfGFile Nothing (Nothing :: Maybe Cancellable)
 
-refresh' :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO (Int32, Int32)
-refresh' da state ctxt = do
+refresh' :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO ()
+refresh' da1 state ctxt = do
   st <- readIORef state
   let sc = scale st
   let doc = document st
   let conf = config st
   pg <- PopDoc.documentGetPage doc (head $ pages st)
   (pw, ph) <- PopPage.pageGetSize pg
-  Gtk.drawingAreaSetContentWidth da $ round (sc * pw)
-  Gtk.setWidgetWidthRequest da $ round (sc * pw)
-  Gtk.drawingAreaSetContentHeight da $ round (sc * ph)
-  Gtk.setWidgetHeightRequest da $ round (sc * ph)
+  Gtk.drawingAreaSetContentWidth da1 $ round (sc * pw)
+  Gtk.setWidgetWidthRequest da1 $ round (sc * pw)
+  Gtk.drawingAreaSetContentHeight da1 $ round (sc * ph)
+  Gtk.setWidgetHeightRequest da1 $ round (sc * ph)
   PopPage.pageRender pg ctxt
   let overlayFile = dDir st ++ "/p" ++ show (1 + head (pages st)) ++ ".svg"
   existsOverlay <- doesFileExist overlayFile
@@ -110,7 +110,6 @@ refresh' da state ctxt = do
           mapM_
             (\handle -> RsvgH.handleRenderLayer handle ctxt (Just $ T.pack $ '#' : overlayLayerID conf) rect)
             mhandle
-  return (round pw, round ph)
 
 textExtract :: Gtk.ApplicationWindow -> Config -> IORef AppState -> IO ()
 textExtract win conf state = do
@@ -520,11 +519,14 @@ noteDialog win x y oldnote tu state = do
 mkColor :: Int -> Double
 mkColor x = fromIntegral x / 255.0
 
-refresh :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO (Int32, Int32)
-refresh da state =
+refresh :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO ()
+refresh da1 state =
   CRC.renderWithContext $ do
     st <- liftIO $ readIORef state
     let sc = scale st
+    CR.scale sc sc
+    CRC.toRender (refresh' da1 state)
+    CR.scale (1/sc) (1/sc)
     let doc = document st
     let conf = config st
     pg <- PopDoc.documentGetPage doc (head $ pages st)
@@ -555,8 +557,6 @@ refresh da state =
             | rect <- rects
           ]
       _ -> return ()
-    CR.scale sc sc
-    CRC.toRender (refresh' da state)
 
 data AppState = AppState
   { pdqFile :: String,
@@ -1113,7 +1113,7 @@ activate clops app = do
   Gtk.drawingAreaSetDrawFunc
     da
     ( Just $ \area context _ _ -> do
-        _ <- refresh area state context
+        refresh area state context
         return ()
     )
   Gtk.widgetAddController window controllerKeyPress
