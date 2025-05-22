@@ -296,6 +296,8 @@ dashboard win tu state =
       [ let notesOnPage = filter (\nt -> notePage nt == fromIntegral p - 1) $ fromMaybe [] (notes $ pdq st)
          in unless (null notesOnPage) $ do
               hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal]
+              lblPg <- new Gtk.Label [#label := T.pack $ show p]
+              hbox.append lblPg
               sequence_
                 [ do
                     lbl0 <- new Gtk.Label []
@@ -526,7 +528,7 @@ refresh da1 state =
     let sc = scale st
     CR.scale sc sc
     CRC.toRender (refresh' da1 state)
-    CR.scale (1/sc) (1/sc)
+    CR.scale (1 / sc) (1 / sc)
     let doc = document st
     let conf = config st
     pg <- PopDoc.documentGetPage doc (head $ pages st)
