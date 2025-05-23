@@ -57,6 +57,7 @@ executable hdt
         gi-gtk4,
         gi-gdk4,
         gi-gio,
+        gi-gobject,
         gi-cairo,
         gi-cairo-render,
         gi-cairo-connector,

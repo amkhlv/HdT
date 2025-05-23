@@ -22,6 +22,7 @@ import GHC.Int (Int32)
 import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
 import qualified GI.Cairo.Structs as CStructs
+import GI.GObject.Objects.Object
 import qualified GI.Gdk as Gdk
 import qualified GI.Gdk.Constants as GdkConst
 import qualified GI.Gdk.Flags as GdkFlags
@@ -880,7 +881,7 @@ activate clops app = do
       [ #label := "pdq",
         On #clicked $ do
           -- cancellable <- GCancellable.cancellableGetCurrent
-          task <- GTask.taskNew (Just ?self) (Nothing :: Maybe Cancellable) Nothing
+          task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
           GTask.taskRunInThread task (\tsk obj dat mcanc -> readIORef state >>= (openEditor . pdqFile))
       ]
   buttonOpenInkscape <-
@@ -890,7 +891,7 @@ activate clops app = do
         On #clicked $ do
           putStrLn "hi"
           -- cancellable <- GCancellable.cancellableGetCurrent
-          task <- GTask.taskNew (Just ?self) (Nothing :: Maybe Cancellable) Nothing
+          task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
           GTask.taskRunInThread
             task
             ( \tsk obj dat mcanc -> do
