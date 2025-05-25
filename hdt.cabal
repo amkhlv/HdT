@@ -36,6 +36,7 @@ library
         directory,
         shh,
         gi-gio,
+        -- gi-gio >= 2.0.38 && < 2.1, -- this fixes spurious WARNING about null object passed to taskNew
         PyF,
         filepath
 
@@ -57,6 +58,7 @@ executable hdt
         gi-gtk4,
         gi-gdk4,
         gi-gio,
+        -- gi-gio >= 2.0.38 && < 2.1, -- this fixes spurious WARNING about null object passed to taskNew
         gi-gobject,
         gi-cairo,
         gi-cairo-render,

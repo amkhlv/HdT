@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=HdT PDF viewer
+Exec=hdt %f
+Terminal=false
+MimeType=application/pdf;
+X-Desktop-File-Install-Version=0.23
