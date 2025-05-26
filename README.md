@@ -4,6 +4,8 @@ HdT
 A handy PdF viewer with the possibility to scribble over pages.
 Uses `SVG` overlays editable with [Inkscape](https://inkscape.org/)
 
+![HdT](resources/hdt.svg)
+
 Installation
 ------------
 
@@ -51,7 +53,7 @@ To create an __SVG overlay__ over page 3, do this:
 
 There is also the ✍ button, which automates this.
 
-While drawing in Inkscape, make sure that you draw on the layer with the id: `layer1`. 
+While drawing in Inkscape, make sure that you draw on the layer with the id: `layer1`.
 This should be automatic, just double-check.
 The layer has label `hdt` and id `layer1`; if you look inside the `p<n>.svg` file the tag should be something like:
 
@@ -111,7 +113,7 @@ Notes (as bookmarks) are stored in the `.pdq` file, while annotations are stored
 (Annotations are a standard feature of `PDF` files, while notes are a feature of `hdt`.)
 
 To add a note, right-click on the document where you want the note marker to be. The dialog will come up.
-If you right-click on an already existing note, the dialog will be pre-filled with the previous note, 
+If you right-click on an already existing note, the dialog will be pre-filled with the previous note,
 and on clicking `OK` it will replace it. If you click on `move` instead of `OK`, then the note will disappear from the page,
 but will be remembered, and will come up at the next right-click. This is how to move them.
 
