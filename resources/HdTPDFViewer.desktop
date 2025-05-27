@@ -5,4 +5,6 @@ Name=HdT PDF viewer
 Exec=hdt %f
 Terminal=false
 MimeType=application/pdf;
+Icon=HdTPDFViewer
+Categories=GTK;Office;Viewer;Graphics;2DGraphics;VectorGraphics;
 X-Desktop-File-Install-Version=0.23

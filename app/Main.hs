@@ -1135,7 +1135,7 @@ main = do
       app <-
         new
           Gtk.Application
-          [ #applicationId := "hdt",
+          [ #applicationId := "HdTPDFViewer",
             On #activate (activate clops ?self)
           ]
       void $ app.run Nothing

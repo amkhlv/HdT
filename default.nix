@@ -6,8 +6,8 @@ pkgs.haskell.lib.overrideCabal (pkgs.haskellPackages.callCabal2nix "hdt" ./. { }
   postInstall =
     (old.postInstall or "")
     + "\n"
-    + "mkdir -p $out/share/applications/; mkdir $out/share/icons/ ;"
-    + "cp resources/hdt.desktop $out/share/applications/ ;"
-    + "cp resources/hdt.svg $out/share/icons/ ;"
-    + "echo Icon=$out/share/icons/hdt.svg >> $out/share/applications/hdt.desktop ; \n";
+    + "mkdir -p $out/share/applications/; mkdir -p $out/share/icons/hicolor/scalable/apps/ ;"
+    + "cp resources/HdTPDFViewer.desktop $out/share/applications/ ;"
+    + "cp resources/HdTPDFViewer.svg $out/share/icons/hicolor/scalable/apps/ ;"
+    + "\n";
 })
