@@ -9,12 +9,26 @@ Uses `SVG` overlays editable with [Inkscape](https://inkscape.org/)
 Installation
 ------------
 
+### Install Inkscape and some command line tools
+
 The command line tools [pdftocairo](https://manpages.debian.org/bookworm/poppler-utils/pdftocairo.1.en.html) and
 [xmlstarlet](https://en.wikipedia.org/wiki/XMLStarlet) should be installed.
 
 And [Inkscape](https://inkscape.org/).
 
-To build and install `hdt`, run `cabal install` in this directory.
+### Build and install HdT
+
+I recommend using the [Nix package manager](https://en.wikipedia.org/wiki/Nix_%28package_manager%29)
+Once it is installed, `cd` to this directory and start Nix shell:
+
+    nix-shell
+
+Then, in Nix shell: 
+
+    cabal install
+    cp sample-config/* ~/.config/hdt/
+
+The binary `hdt` will be put in `~/.local/bin`.
 
 Configuration
 -------------
