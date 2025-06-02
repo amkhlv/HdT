@@ -16,24 +16,20 @@ The command line tools [pdftocairo](https://manpages.debian.org/bookworm/poppler
 
 And [Inkscape](https://inkscape.org/).
 
-### Build and install HdT
+### Install and configure HdT
 
 I recommend using the [Nix package manager](https://en.wikipedia.org/wiki/Nix_%28package_manager%29)
-Once it is installed, `cd` to this directory and start Nix shell:
+Once it is installed, `cd` to this directory and say:
 
-    nix-shell
+    nix profile install .
 
-Then, in Nix shell: 
+The binary `hdt` will be put in `~/.nix-profile/bin/hdt`.
 
-    cabal install
-    cp sample-config/* ~/.config/hdt/
+It is necessary to have a valid configuration in `~/.config/hdt/`.
+Otherwise:
 
-The binary `hdt` will be put in `~/.local/bin`.
+    cp sample-config/*  ~/.config/hdt/
 
-Configuration
--------------
-
-The sample configuration files `sample-config/` should be copied to `~/.config/hdt/`.
 
 
 Use
