@@ -880,25 +880,30 @@ activate clops app = do
       Gtk.Button
       [ #label := "pdq",
         On #clicked $ do
-          -- cancellable <- GCancellable.cancellableGetCurrent
+          putStrLn "-- preparing taskNew"
           task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
-          GTask.taskRunInThread task (\tsk obj dat mcanc -> readIORef state >>= (openEditor . pdqFile))
+          putStrLn "-- starting in thread"
+          pdqf <- pdqFile <$> readIORef state
+          GTask.taskRunInThread task (\_tsk _obj _dat _mcanc -> openEditor pdqf)
+          putStrLn "-- started in thread"
       ]
   buttonOpenInkscape <-
     new
       Gtk.Button
       [ #label := "✍",
         On #clicked $ do
-          putStrLn "hi"
-          -- cancellable <- GCancellable.cancellableGetCurrent
+          putStrLn "-- preparing taskNew"
           task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
+          putStrLn "-- starting in thread"
+          pageNow <- fromIntegral . head . pages <$> readIORef state
+          ddr <- dDir <$> readIORef state
           GTask.taskRunInThread
             task
             ( \tsk obj dat mcanc -> do
-                st <- readIORef state
-                svg <- prepSVG (1 + fromIntegral (head $ pages st)) (overlayLayerID conf) (Just $ dDir st)
+                svg <- prepSVG (1 + pageNow) (overlayLayerID conf) (Just ddr)
                 openInkscape svg
             )
+          putStrLn "-- started in thread"
       ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonReload
