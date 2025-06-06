@@ -34,11 +34,12 @@ library
         data-default,
         dhall,
         directory,
-        shh,
+        -- shh,
         gi-gio,
         -- gi-gio >= 2.0.38 && < 2.1, 
         PyF,
-        filepath
+        filepath,
+        process
 
     hs-source-dirs:   src
     default-language: Haskell2010
@@ -67,7 +68,8 @@ executable hdt
         gi-rsvg,
         optparse-applicative,
         dhall,
-        vector
+        vector,
+        process
 
     hs-source-dirs:   app
     default-language: Haskell2010
