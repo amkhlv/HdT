@@ -11,7 +11,6 @@ import Control.Monad (join, unless, void, when, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (def)
 import Data.GI.Base
-import Data.GI.Base.GError
 import qualified Data.GI.Base.GValue as GV
 import Data.IORef
 import Data.List (find)
@@ -22,17 +21,14 @@ import GHC.Int (Int32)
 import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
 import qualified GI.Cairo.Structs as CStructs
-import GI.GObject.Objects.Object
 import qualified GI.Gdk as Gdk
 import qualified GI.Gdk.Constants as GdkConst
 import qualified GI.Gdk.Flags as GdkFlags
 import qualified GI.Gdk.Objects.Clipboard as CB
 import qualified GI.Gdk.Objects.Display as GD
 import qualified GI.Gdk.Structs.Rectangle as GdkRect
-import qualified GI.Gio.Callbacks as GCallbacks
 import qualified GI.Gio.Interfaces.File as GFile
 import GI.Gio.Objects.Cancellable
-import qualified GI.Gio.Objects.Task as GTask
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Constants as GtkConst
 import qualified GI.Gtk.Objects.CssProvider as GtkProvider
@@ -55,7 +51,6 @@ import qualified GI.Poppler.Unions.Action as Act
 import qualified GI.Rsvg.Enums as RsvgEnums
 import qualified GI.Rsvg.Objects.Handle as RsvgH
 import qualified GI.Rsvg.Structs.Rectangle as RsvgRect
-import Numeric (showHex)
 import qualified Options.Applicative as Opt
 import PdQ
 import PrepSVG
@@ -880,30 +875,22 @@ activate clops app = do
       Gtk.Button
       [ #label := "pdq",
         On #clicked $ do
-          putStrLn "-- preparing taskNew"
-          task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
-          putStrLn "-- starting in thread"
+          putStrLn "-- starting editPdQ"
           pdqf <- pdqFile <$> readIORef state
-          GTask.taskRunInThread task (\_tsk _obj _dat _mcanc -> openEditor pdqf)
-          putStrLn "-- started in thread"
+          editPdQ pdqf
+          putStrLn "-- started editPdQ"
       ]
   buttonOpenInkscape <-
     new
       Gtk.Button
       [ #label := "✍",
         On #clicked $ do
-          putStrLn "-- preparing taskNew"
-          task <- GTask.taskNew (Nothing :: Maybe Object) (Nothing :: Maybe Cancellable) Nothing
-          putStrLn "-- starting in thread"
+          putStrLn "-- starting preparation+Inkscape"
           pageNow <- fromIntegral . head . pages <$> readIORef state
           ddr <- dDir <$> readIORef state
-          GTask.taskRunInThread
-            task
-            ( \tsk obj dat mcanc -> do
-                svg <- prepSVG (1 + pageNow) (overlayLayerID conf) (Just ddr)
-                openInkscape svg
-            )
-          putStrLn "-- started in thread"
+          svg <- prepSVG (1 + pageNow) (overlayLayerID conf) (Just ddr)
+          openInkscape svg
+          putStrLn "-- started Inkscape"
       ]
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
   toolbar.append buttonReload

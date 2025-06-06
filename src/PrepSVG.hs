@@ -8,20 +8,15 @@ module PrepSVG (prepSVG) where
 import Control.Monad (unless)
 import Data.Maybe (isJust)
 import Data.Text (isSuffixOf, pack)
+import GI.Gio.Objects.Cancellable
+import qualified GI.Gio.Objects.Subprocess as GSub
 import PyF
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory)
-import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
-import qualified System.Process as SysProc
 
-createLayer :: String -> String -> IO SysProc.ProcessHandle
-createLayer filename layername = do
-  (_, _, _, handle) <-
-    SysProc.createProcess
-      ( SysProc.proc
-          "xmlstarlet"
-          $ words
-            [fmt|
+xmlProg :: String -> String
+xmlProg layername =
+  [fmt|
 ed --inplace
 -N s=http://www.w3.org/2000/svg
 -s /s:svg -t attr -n xmlns:inkscape -v http://www.inkscape.org/namespaces/inkscape
@@ -30,10 +25,7 @@ ed --inplace
 -s $NEWL -t attr -n inkscape:label -v hdt
 -s $NEWL -t attr -n inkscape:groupmode -v layer
 -s $NEWL -t attr -n id -v {layername}
- |]
-            ++ [filename]
-      )
-  return handle
+   |]
 
 prepSVG :: Int -> String -> Maybe String -> IO String
 prepSVG pg layername mdDir = do
@@ -49,11 +41,9 @@ prepSVG pg layername mdDir = do
       if alreadyTraced
         then putStrLn $ "Using already existing SVG file " ++ svgFile
         else do
-          (_, _, _, pdftocairo) <- SysProc.createProcess $ SysProc.proc "pdftocairo" [pdfFile, svgFile, "-f", show pg, "-l", show pg, "-svg"]
-          pdftocairoExitCode <- SysProc.waitForProcess pdftocairo
-          unless (pdftocairoExitCode == ExitSuccess) (error "pdftocairo error")
-          starlet <- createLayer svgFile layername
-          starletExitCode <- SysProc.waitForProcess starlet
-          unless (starletExitCode == ExitSuccess) (error "xmlstarlet error")
+          sub <- GSub.subprocessNew ["pdftocairo", pdfFile, svgFile, "-f", show pg, "-l", show pg, "-svg"] []
+          GSub.subprocessWait sub (Nothing :: Maybe Cancellable)
+          sub1 <- GSub.subprocessNew ("xmlstarlet" : words (xmlProg layername) ++ [svgFile]) []
+          GSub.subprocessWait sub1 (Nothing :: Maybe Cancellable)
       return svgFile
     else error "Not in an .hdt directory"

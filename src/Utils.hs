@@ -3,22 +3,18 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Utils (openEditor, openInkscape) where
+module Utils (openInkscape, editPdQ) where
 
-import Control.Monad (unless)
+import qualified GI.Gio.Objects.Subprocess as GSub
 import System.Directory (getHomeDirectory)
-import System.Exit (ExitCode (ExitSuccess))
-import qualified System.Process as SysProc
 
-openEditor :: String -> IO ()
-openEditor filename = do
+editPdQ :: String -> IO ()
+editPdQ filename = do
   home <- getHomeDirectory
-  (_, _, _, handle) <- SysProc.createProcess $ SysProc.proc (home ++ "/.config/hdt/edit-pdq.sh") [filename]
-  code <- SysProc.waitForProcess handle
-  unless (code == ExitSuccess) $ print code
+  _ <- GSub.subprocessNew ["sh", home ++ "/.config/hdt/edit-pdq.sh", filename] []
+  return ()
 
 openInkscape :: String -> IO ()
 openInkscape filename = do
-  (_, _, _, handle) <- SysProc.createProcess $ SysProc.proc "inkscape" [filename]
-  code <- SysProc.waitForProcess handle
-  unless (code == ExitSuccess) $ print code
+  _ <- GSub.subprocessNew ["inkscape", filename] []
+  putStrLn "-- returning from Inkscape"
