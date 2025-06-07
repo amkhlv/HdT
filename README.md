@@ -23,13 +23,10 @@ Once it is installed, `cd` to this directory and say:
 
     nix profile install .
 
-The binary `hdt` will be put in `~/.nix-profile/bin/hdt`.
+The binary `hdtview` will be put in `~/.nix-profile/bin/hdtview`.
 
-It is necessary to have a valid configuration in `~/.config/hdt/`.
-Otherwise:
-
-    cp sample-config/*  ~/.config/hdt/
-
+The configuration directory is `~/.config/HdTPDFViewer/`.
+If this directory is not present, it will be created at the first run.
 
 
 Use
@@ -41,7 +38,7 @@ Suppose that we are looking at a `.pdf` file, _e.g._ :
 
     /home/andrei/papers/paper.pdf
 
-When we first run `hdt` on this file, it will create an `XML` file with the extension `.pdq`. Now we have two files:
+When we first run `hdtview` on this file, it will create an `XML` file with the extension `.pdq`. Now we have two files:
 
     /home/andrei/papers/paper.pdf
     /home/andrei/papers/paper.pdq
@@ -58,7 +55,7 @@ now we have two files and a folder:
 To create an __SVG overlay__ over page 3, do this:
 
     cd /home/andrei/papers/paper.hdt/
-    hdt -e 3
+    hdtview -e 3
     inkscape p3.svg &
 
 There is also the ✍ button, which automates this.
@@ -81,7 +78,7 @@ To ovewrite settings, put the corresponding keys in  `/home/andrei/papers/paper.
      initialScale = 1.3
      }
 
--- this will overwrite the `initialScale` setting in `~/.config/hdt/config.dhall` specially for the `paper.pdf` file.
+-- this will overwrite the `initialScale` setting in `~/.config/HdTPDFViewer/config.dhall` specially for the `paper.pdf` file.
 
 ### Keyboard shortcuts
 

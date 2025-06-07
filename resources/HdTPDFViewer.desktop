@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=HdT PDF viewer
-Exec=hdt %f
+Exec=hdtview %f
 Terminal=false
 MimeType=application/pdf;
 Icon=HdTPDFViewer
