@@ -51,6 +51,7 @@ import qualified GI.Poppler.Unions.Action as Act
 import qualified GI.Rsvg.Enums as RsvgEnums
 import qualified GI.Rsvg.Objects.Handle as RsvgH
 import qualified GI.Rsvg.Structs.Rectangle as RsvgRect
+import InitConf
 import qualified Options.Applicative as Opt
 import PdQ
 import PrepSVG
@@ -1117,6 +1118,7 @@ activate clops app = do
 
 main :: IO ()
 main = do
+  initConf
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
     then do

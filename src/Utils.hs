@@ -11,7 +11,7 @@ import System.Directory (getHomeDirectory)
 editPdQ :: String -> IO ()
 editPdQ filename = do
   home <- getHomeDirectory
-  _ <- GSub.subprocessNew ["sh", home ++ "/.config/hdt/edit-pdq.sh", filename] []
+  _ <- GSub.subprocessNew ["sh", home ++ "/.config/HdTPDFViewer/edit-pdq.sh", filename] []
   return ()
 
 openInkscape :: String -> IO ()
