@@ -16,17 +16,25 @@ The command line tools [pdftocairo](https://manpages.debian.org/bookworm/poppler
 
 And [Inkscape](https://inkscape.org/).
 
-### Install and configure HdT
+### Install
 
-I recommend using the [Nix package manager](https://en.wikipedia.org/wiki/Nix_%28package_manager%29)
-Once it is installed, `cd` to this directory and say:
+I recommend using the [Nix package manager](https://en.wikipedia.org/wiki/Nix_%28package_manager%29).
+Flakes should be [enabled](https://wiki.nixos.org/wiki/Flakes). Then:
 
-    nix profile install .
+    nix profile install github:amkhlv/HdT
 
 The binary `hdtview` will be put in `~/.nix-profile/bin/hdtview`.
 
+In fact, the required programs `pdftocairo`, `xmlstarlet` and `inkscape` can also be installed _via_ `nix profile`:
+
+    nix profile install nixpkgs#pdftocairo
+    nix profile install nixpkgs#xmlstarlet
+    nix profile install nixpkgs#inkscape
+
+### Config
+
 The configuration directory is `~/.config/HdTPDFViewer/`.
-If this directory is not present, it will be created at the first run.
+If this directory is not present, it will be created at the first run, and filled with the default configuration.
 
 
 Use
