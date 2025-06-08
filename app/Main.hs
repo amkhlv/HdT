@@ -7,6 +7,7 @@
 module Main where
 
 import Config
+import Control.Concurrent (rtsSupportsBoundThreads)
 import Control.Monad (join, unless, void, when, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (def)
@@ -1118,6 +1119,7 @@ activate clops app = do
 
 main :: IO ()
 main = do
+  unless rtsSupportsBoundThreads (error "ERROR: HdT is compiled without ghc-options: -threaded ; exiting")
   initConf
   clops <- Opt.execParser $ Opt.info (Opt.helper <*> optParser) Opt.fullDesc
   if extractPage clops > 0
