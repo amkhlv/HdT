@@ -265,7 +265,6 @@ gotoPageDialog win tu state = do
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
             Nothing -> return ()
-
           return ()
       ]
   controllerKeyPress <-
@@ -284,12 +283,58 @@ gotoPageDialog win tu state = do
 
   return ()
 
+overlays :: Bool -> Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
+overlays includingNotes win tu state = do
+  st <- readIORef state
+  vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 6]
+  panel <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "overlays", #child := vbox]
+  col <- newIORef 0
+  hbox0 <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
+  vbox.append hbox0
+  row <- newIORef hbox0
+  sequence_
+    [ do
+        let overlayFile = dDir st ++ "/p" ++ show (p + 1) ++ ".svg"
+        existsOverlay <- doesFileExist overlayFile
+        let existsNote = any (\nt -> notePage nt == fromIntegral p) (fromMaybe [] (notes $ pdq st))
+        when (existsOverlay || includingNotes && existsNote) $ do
+          ncol <- readIORef col
+          modifyIORef col (+ 1)
+          when (ncol >= 20) $ do
+            hbox <- new Gtk.Box [#orientation := Gtk.OrientationHorizontal, #spacing := 1]
+            vbox.append hbox
+            writeIORef row hbox
+            writeIORef col 1
+          button <-
+            new
+              Gtk.Button
+              [ #label := T.pack $ show (p + 1),
+                On #clicked $ do
+                  let newSt = st {pages = p : pages st}
+                  writeIORef state newSt
+                  unless includingNotes $ GtkWin.windowDestroy panel
+                  readIORef state >>= updateUI tu
+              ]
+          hbox1 <- readIORef row
+          hbox1.append button
+      | p <- [0 .. totalPages st - 1]
+    ]
+  okBtn <-
+    new
+      Gtk.Button
+      [ #label := "OK",
+        On #clicked $ do
+          GtkWin.windowDestroy panel
+      ]
+  vbox.append okBtn
+  Gtk.widgetSetVisible panel True
+
 dashboard :: Gtk.ApplicationWindow -> ToUpdate -> IORef AppState -> IO ()
 dashboard win tu state =
   do
     st <- readIORef state
     vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 6]
-    panel <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "Notes:", #child := vbox]
+    panel <- new Gtk.Window [#transientFor := win, #destroyWithParent := True, #modal := True, #title := "notes", #child := vbox]
     sequence_
       [ let notesOnPage = filter (\nt -> notePage nt == fromIntegral p - 1) $ fromMaybe [] (notes $ pdq st)
          in unless (null notesOnPage) $ do
@@ -872,6 +917,18 @@ activate clops app = do
           #clicked
           (dashboard window toUpdate state)
       ]
+  buttonOverlays <-
+    new
+      Gtk.Button
+      [ #label := "🗐",
+        On #clicked (overlays False window toUpdate state)
+      ]
+  buttonOverlaysOrNotes <-
+    new
+      Gtk.Button
+      [ #label := "🗐📋",
+        On #clicked (overlays True window toUpdate state)
+      ]
   buttonOpenPdQ <-
     new
       Gtk.Button
@@ -914,6 +971,8 @@ activate clops app = do
   toolbar.append buttonReturnToWhereSearchStarted
   toolbar.append buttonTextExtract
   toolbar.append buttonDashboard
+  toolbar.append buttonOverlays
+  toolbar.append buttonOverlaysOrNotes
   toolbar.append buttonOpenPdQ
   toolbar.append buttonOpenInkscape
 
