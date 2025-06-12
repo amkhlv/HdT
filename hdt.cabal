@@ -23,7 +23,8 @@ library
       Config,
       PrepSVG,
       Utils,
-      InitConf
+      InitConf,
+      CustomQQ
     -- other-modules:
     -- other-extensions:
     ghc-options: -threaded
@@ -42,7 +43,8 @@ library
         PyF,
         filepath,
         system-fileio,
-        prettyprinter
+        prettyprinter,
+        template-haskell
 
     hs-source-dirs:   src
     default-language: Haskell2010

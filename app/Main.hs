@@ -797,6 +797,7 @@ activate clops app = do
                 )
           )
       ]
+  Gtk.widgetAddCssClass buttonNextPage "button-group-navigate"
   buttonPrevPage <-
     new
       Gtk.Button
@@ -813,6 +814,7 @@ activate clops app = do
                 )
           )
       ]
+  Gtk.widgetAddCssClass buttonPrevPage "button-group-navigate"
   buttonGoBack <-
     new
       Gtk.Button
@@ -829,6 +831,7 @@ activate clops app = do
                 )
           )
       ]
+  Gtk.widgetAddCssClass buttonGoBack "button-group-navigate"
   buttonZoomIn <-
     new
       Gtk.Button
@@ -842,6 +845,7 @@ activate clops app = do
               readIORef state >>= updateUI toUpdate
           )
       ]
+  Gtk.widgetAddCssClass buttonZoomIn "button-group-zoom"
   buttonZoomOut <-
     new
       Gtk.Button
@@ -855,6 +859,7 @@ activate clops app = do
               readIORef state >>= updateUI toUpdate
           )
       ]
+  Gtk.widgetAddCssClass buttonZoomOut "button-group-zoom"
   window <-
     new
       Gtk.ApplicationWindow
@@ -873,6 +878,7 @@ activate clops app = do
               search window toUpdate clops state
           )
       ]
+  Gtk.widgetAddCssClass buttonStartSearch "button-group-search"
   buttonNextMatch <-
     new
       Gtk.Button
@@ -881,6 +887,7 @@ activate clops app = do
           #clicked
           (findNext window False toUpdate clops state)
       ]
+  Gtk.widgetAddCssClass buttonNextMatch "button-group-search"
   buttonPrevMatch <-
     new
       Gtk.Button
@@ -889,6 +896,7 @@ activate clops app = do
           #clicked
           (findNext window True toUpdate clops state)
       ]
+  Gtk.widgetAddCssClass buttonPrevMatch "button-group-search"
   buttonReturnToWhereSearchStarted <-
     new
       Gtk.Button
@@ -897,18 +905,21 @@ activate clops app = do
           #clicked
           (returnToWhereSearchStarted toUpdate state)
       ]
+  Gtk.widgetAddCssClass buttonReturnToWhereSearchStarted "button-group-search"
   buttonTextExtract <-
     new
       Gtk.Button
       [ #label := "txt",
         On #clicked (textExtract window conf state)
       ]
+  Gtk.widgetAddCssClass buttonTextExtract "button-text-extract"
   buttonReload <-
     new
       Gtk.Button
       [ #label := "↺",
         On #clicked (reload clops state >> readIORef state >>= updateUI toUpdate)
       ]
+  Gtk.widgetAddCssClass buttonReload "button-reload"
   buttonDashboard <-
     new
       Gtk.Button
@@ -917,18 +928,21 @@ activate clops app = do
           #clicked
           (dashboard window toUpdate state)
       ]
+  Gtk.widgetAddCssClass buttonDashboard "button-notes"
   buttonOverlays <-
     new
       Gtk.Button
       [ #label := "🗐",
         On #clicked (overlays False window toUpdate state)
       ]
+  Gtk.widgetAddCssClass buttonOverlays "button-overlays"
   buttonOverlaysOrNotes <-
     new
       Gtk.Button
       [ #label := "🗐📋",
         On #clicked (overlays True window toUpdate state)
       ]
+  Gtk.widgetAddCssClass buttonOverlaysOrNotes "button-overlays-or-notes"
   buttonOpenPdQ <-
     new
       Gtk.Button
@@ -939,6 +953,7 @@ activate clops app = do
           editPdQ pdqf
           putStrLn "-- started editPdQ"
       ]
+  Gtk.widgetAddCssClass buttonOpenPdQ "button-pdq"
   buttonOpenInkscape <-
     new
       Gtk.Button
@@ -951,7 +966,9 @@ activate clops app = do
           openInkscape svg
           putStrLn "-- started Inkscape"
       ]
+  Gtk.widgetAddCssClass buttonOpenInkscape "button-inkscape"
   toolbar <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 1]
+  Gtk.widgetAddCssClass toolbar "toolbar"
   toolbar.append buttonReload
   toolbar.append buttonPrevPage
   toolbar.append buttonNextPage

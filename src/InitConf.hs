@@ -15,9 +15,131 @@ import PyF
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, getHomeDirectory, makeAbsolute)
 import System.FilePath ((</>))
 import System.IO (IOMode (WriteMode), hPutStrLn, withFile)
+import Language.Haskell.TH.Quote
+import CustomQQ
+
 
 defaultCSS :: String
-defaultCSS = ".main-area { background-color: #fff7f0; }"
+defaultCSS = [cssFmt|
+.main-area { background-color: #fff7f0; }
+.toolbar {
+    background-color: #fff0e0
+}
+/* https://www.colourlovers.com/palette/888/Too_Light */
+.button-reload {
+    background-color: #e2f4fb;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-reload:hover {
+    background-color: #e0ffe0;
+}
+.button-group-search {
+    background-color: #feeca5;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-group-search:hover {
+    background-color: #e0ffe0;
+}
+.button-group-navigate {
+    background-color: #ffdfbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-group-navigate:hover {
+    background-color: #e0ffe0;
+}
+.button-group-zoom {
+    background-color: #c4ecff;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-group-zoom:hover {
+    background-color: #e0ffe0;
+}
+.button-text-extract {
+    background-color: #e2f4fb;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-text-extract:hover {
+    background-color: #e0ffe0;
+}
+.button-notes {
+    background-color: #ffffbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-notes:hover {
+    background-color: #e0ffe0;
+}
+.button-overlays {
+    background-color: #ffffbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-overlays:hover {
+    background-color: #e0ffe0;
+}
+.button-overlays-or-notes {
+    background-color: #ffffbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-overlays-or-notes:hover {
+    background-color: #e0ffe0;
+}
+.button-pdq {
+    background-color: #ffdfbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-pdq:hover {
+    background-color: #e0ffe0;
+}
+.button-inkscape {
+    background-color: #e2f4fb;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-inkscape:hover {
+    background-color: #e0ffe0;
+}
+
+ |]
+
+
 
 defaultEditPdQ :: String
 defaultEditPdQ = [fmt|
