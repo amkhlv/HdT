@@ -37,6 +37,14 @@ defaultCSS = [cssFmt|
 .button-reload:hover {
     background-color: #e0ffe0;
 }
+.page-label {
+    color: lime;
+    font-size: x-large;
+    font-weight: bold;
+}
+.total-pages-label {
+    color: darkblue;
+}
 .button-group-search {
     background-color: #feeca5;
     min-width: 1px;
@@ -59,7 +67,17 @@ defaultCSS = [cssFmt|
 .button-group-navigate:hover {
     background-color: #e0ffe0;
 }
-.button-group-zoom {
+.button-group-bookmarks {
+    background-color: #ffffbf;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+.button-group-bookmarks:hover {
+    background-color: #e0ffe0;
+}.button-group-zoom {
     background-color: #c4ecff;
     min-width: 1px;
     padding-left: 0px;

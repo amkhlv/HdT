@@ -636,8 +636,7 @@ scrollH swin dh = do
 
 updateUI :: ToUpdate -> AppState -> IO ()
 updateUI tu st = do
-  -- GtkLbl.labelSetText (lPage tu) $ T.pack (show $ head (pages st) + 1)
-  Gtk.labelSetMarkup (lPage tu) (T.pack $ "<span size=\"x-large\" weight=\"bold\">" ++ show (head (pages st) + 1) ++ "</span>")
+  GtkLbl.labelSetText (lPage tu) $ T.pack (show $ head (pages st) + 1)
   GtkLbl.labelSetText (lZoom tu) $ T.pack (show (round (100 * scale st)) ++ "%")
   Gtk.widgetQueueDraw (da tu)
 
@@ -770,13 +769,10 @@ activate clops app = do
   swin <- new Gtk.ScrolledWindow [#child := view, #hexpand := True]
 
   separator <- new Gtk.Separator [#orientation := Gtk.OrientationHorizontal]
-  pageLabelLabel <- new Gtk.Label []
-  Gtk.labelSetMarkup pageLabelLabel "<small>page</small>"
-  pageLabel <- new Gtk.Label []
-  Gtk.labelSetMarkup pageLabel (T.pack $ "<span size=\"x-large\" weight=\"bold\">" ++ show (openPage clops) ++ "</span>")
-  totalPagesLabelLabel <- new Gtk.Label []
-  Gtk.labelSetMarkup totalPagesLabelLabel "<small>of</small>"
+  pageLabel <- new Gtk.Label [#label := T.pack . show $ openPage clops]
+  Gtk.widgetAddCssClass pageLabel "page-label"
   totalPagesLabel <- new Gtk.Label [#label := (T.pack . show $ npages)]
+  Gtk.widgetAddCssClass totalPagesLabel "total-pages-label"
   zoomLabel <- new Gtk.Label [#label := T.pack (show (round $ 100 * initialScale conf) ++ "%")]
 
   let toUpdate = ToUpdate {da = da, lPage = pageLabel, lZoom = zoomLabel}
@@ -906,6 +902,23 @@ activate clops app = do
           (returnToWhereSearchStarted toUpdate state)
       ]
   Gtk.widgetAddCssClass buttonReturnToWhereSearchStarted "button-group-search"
+  buttonAddBookmark <-
+    new
+      Gtk.Button
+      [ #label := "+🞰",
+        On
+          #clicked
+          $ newBookmarkDialog window toUpdate state
+      ]
+  Gtk.widgetAddCssClass buttonAddBookmark "button-group-bookmarks"
+  buttonShowBookmarks <-
+    new
+      Gtk.Button
+      [ #label := "🞰🞰🞰",
+        On #clicked $
+          gotoBookmarkDialog window toUpdate state
+      ]
+  Gtk.widgetAddCssClass buttonShowBookmarks "button-group-bookmarks"
   buttonTextExtract <-
     new
       Gtk.Button
@@ -974,14 +987,13 @@ activate clops app = do
   toolbar.append buttonNextPage
   toolbar.append buttonGoBack
   toolbar.append separator
-  toolbar.append pageLabelLabel
   toolbar.append pageLabel
-  toolbar.append totalPagesLabelLabel
   toolbar.append totalPagesLabel
-  toolbar.append separator
+  toolbar.append buttonShowBookmarks
+  toolbar.append buttonAddBookmark
+  toolbar.append zoomLabel
   toolbar.append buttonZoomIn
   toolbar.append buttonZoomOut
-  toolbar.append zoomLabel
   toolbar.append buttonStartSearch
   toolbar.append buttonPrevMatch
   toolbar.append buttonNextMatch
