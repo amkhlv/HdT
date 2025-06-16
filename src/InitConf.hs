@@ -45,6 +45,9 @@ defaultCSS = [cssFmt|
 .total-pages-label {
     color: darkblue;
 }
+.zoom-label {
+    color: darkred;
+}
 .button-group-search {
     background-color: #feeca5;
     min-width: 1px;

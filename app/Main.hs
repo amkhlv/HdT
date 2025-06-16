@@ -774,6 +774,7 @@ activate clops app = do
   totalPagesLabel <- new Gtk.Label [#label := (T.pack . show $ npages)]
   Gtk.widgetAddCssClass totalPagesLabel "total-pages-label"
   zoomLabel <- new Gtk.Label [#label := T.pack (show (round $ 100 * initialScale conf) ++ "%")]
+  Gtk.widgetAddCssClass zoomLabel "zoom-label"
 
   let toUpdate = ToUpdate {da = da, lPage = pageLabel, lZoom = zoomLabel}
 
