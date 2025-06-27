@@ -7,167 +7,22 @@ module InitConf (initConf) where
 
 import Config
 import Control.Monad (unless)
-import Data.Maybe (isJust)
-import Data.Text (isSuffixOf, pack)
-import GI.Gio.Objects.Cancellable
-import qualified GI.Gio.Objects.Subprocess as GSub
-import PyF
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, getHomeDirectory, makeAbsolute)
+import qualified Data.ByteString as BS
+import Data.FileEmbed (embedFileRelative)
+import System.Directory (createDirectory, doesDirectoryExist, getHomeDirectory)
 import System.FilePath ((</>))
-import System.IO (IOMode (WriteMode), hPutStrLn, withFile)
-import Language.Haskell.TH.Quote
-import CustomQQ
 
+defaultCSS :: BS.ByteString
+defaultCSS = $(embedFileRelative "src/config/style.css")
 
-defaultCSS :: String
-defaultCSS = [cssFmt|
-.main-area { background-color: #fff7f0; }
-.toolbar {
-    background-color: #fff0e0
-}
-/* https://www.colourlovers.com/palette/888/Too_Light */
-.button-reload {
-    background-color: #e2f4fb;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-reload:hover {
-    background-color: #e0ffe0;
-}
-.page-label {
-    color: lime;
-    font-size: x-large;
-    font-weight: bold;
-}
-.total-pages-label {
-    color: darkblue;
-}
-.zoom-label {
-    color: darkred;
-}
-.button-group-search {
-    background-color: #feeca5;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-group-search:hover {
-    background-color: #e0ffe0;
-}
-.button-group-navigate {
-    background-color: #ffdfbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-group-navigate:hover {
-    background-color: #e0ffe0;
-}
-.button-group-bookmarks {
-    background-color: #ffffbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-group-bookmarks:hover {
-    background-color: #e0ffe0;
-}.button-group-zoom {
-    background-color: #c4ecff;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-group-zoom:hover {
-    background-color: #e0ffe0;
-}
-.button-text-extract {
-    background-color: #e2f4fb;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-text-extract:hover {
-    background-color: #e0ffe0;
-}
-.button-notes {
-    background-color: #ffffbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-notes:hover {
-    background-color: #e0ffe0;
-}
-.button-overlays {
-    background-color: #ffffbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-overlays:hover {
-    background-color: #e0ffe0;
-}
-.button-overlays-or-notes {
-    background-color: #ffffbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-overlays-or-notes:hover {
-    background-color: #e0ffe0;
-}
-.button-pdq {
-    background-color: #ffdfbf;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-pdq:hover {
-    background-color: #e0ffe0;
-}
-.button-inkscape {
-    background-color: #e2f4fb;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
-.button-inkscape:hover {
-    background-color: #e0ffe0;
-}
+defaultEditPdQ :: BS.ByteString
+defaultEditPdQ = $(embedFileRelative "src/config/edit-pdq.sh")
 
- |]
+defaultInsertLayer :: BS.ByteString
+defaultInsertLayer = $(embedFileRelative "src/config/insert-layer.sh")
 
-
-
-defaultEditPdQ :: String
-defaultEditPdQ = [fmt|
-#!/bin/sh
-
-gvim "$1"
- |]
+defaultPDFtoSVG :: BS.ByteString
+defaultPDFtoSVG = $(embedFileRelative "src/config/pdf-to-svg.sh")
 
 initConf :: IO ()
 initConf = do
@@ -177,5 +32,7 @@ initConf = do
   unless alreadyExists $ do
     createDirectory confDir
     writeDefaultConf $ confDir </> "config.dhall"
-    writeFile (confDir </> "style.css") defaultCSS
-    writeFile (confDir </> "edit-pdq.sh") defaultEditPdQ
+    BS.writeFile (confDir </> "style.css") defaultCSS
+    BS.writeFile (confDir </> "edit-pdq.sh") defaultEditPdQ
+    BS.writeFile (confDir </> "pdf-to-svg.sh") defaultPDFtoSVG
+    BS.writeFile (confDir </> "insert-layer.sh") defaultInsertLayer

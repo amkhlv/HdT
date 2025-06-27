@@ -10,22 +10,8 @@ import Data.Maybe (isJust)
 import Data.Text (isSuffixOf, pack)
 import GI.Gio.Objects.Cancellable
 import qualified GI.Gio.Objects.Subprocess as GSub
-import PyF
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory)
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, getHomeDirectory)
 import System.FilePath ((</>))
-
-xmlProg :: String -> String
-xmlProg layername =
-  [fmt|
-ed --inplace
--N s=http://www.w3.org/2000/svg
--s /s:svg -t attr -n xmlns:inkscape -v http://www.inkscape.org/namespaces/inkscape
--s /s:svg -t elem -n g
---var NEWL $prev
--s $NEWL -t attr -n inkscape:label -v hdt
--s $NEWL -t attr -n inkscape:groupmode -v layer
--s $NEWL -t attr -n id -v {layername}
-   |]
 
 prepSVG :: Int -> String -> Maybe String -> IO String
 prepSVG pg layername mdDir = do
@@ -41,9 +27,10 @@ prepSVG pg layername mdDir = do
       if alreadyTraced
         then putStrLn $ "Using already existing SVG file " ++ svgFile
         else do
-          sub <- GSub.subprocessNew ["pdftocairo", pdfFile, svgFile, "-f", show pg, "-l", show pg, "-svg"] []
+          home <- getHomeDirectory
+          sub <- GSub.subprocessNew ["sh", home ++ "/.config/HdTPDFViewer/pdf-to-svg.sh", pdfFile, svgFile, show pg] []
           GSub.subprocessWait sub (Nothing :: Maybe Cancellable)
-          sub1 <- GSub.subprocessNew ("xmlstarlet" : words (xmlProg layername) ++ [svgFile]) []
+          sub1 <- GSub.subprocessNew ["sh", home ++ "/.config/HdTPDFViewer/insert-layer.sh", layername, svgFile] []
           GSub.subprocessWait sub1 (Nothing :: Maybe Cancellable)
       return svgFile
     else error "Not in an .hdt directory"
