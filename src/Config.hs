@@ -4,6 +4,8 @@
 
 module Config
   ( Clr (..),
+    HintStyle (..),
+    Antialias (..),
     Config (..),
     getConfig,
     getCSSFile,
@@ -14,7 +16,7 @@ where
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Prettyprint.Doc.Render.Text as Prettyprint.Text
-import Dhall (Decoder, Generic, Natural, double, field, input, inputFile, list, natural, record, string)
+import Dhall (Decoder, Generic, Natural, constructor, double, field, input, inputFile, list, natural, record, string, union, unit)
 import Dhall.Marshal.Encode (ToDhall, embed, inject)
 import qualified Dhall.Pretty
 import qualified GHC.IO.Handle
@@ -26,6 +28,38 @@ data Clr = Clr {r :: Natural, g :: Natural, b :: Natural} deriving (Generic, Sho
 
 instance ToDhall Clr
 
+data HintStyle = HintStyleDefault | HintStyleNone | HintStyleSlight | HintStyleMedium | HintStyleFull
+  deriving (Show, Eq, Generic)
+
+instance ToDhall HintStyle
+
+hstyle :: Decoder HintStyle
+hstyle =
+  union
+    ( (HintStyleDefault <$ constructor "HintStyleDefault" unit)
+        <> (HintStyleNone <$ constructor "HintStyleNone" unit)
+        <> (HintStyleSlight <$ constructor "HintStyleSlight" unit)
+        <> (HintStyleMedium <$ constructor "HintStyleMedium" unit)
+        <> (HintStyleFull <$ constructor "HintStyleFull" unit)
+    )
+
+data Antialias = AntialiasDefault | AntialiasNone | AntialiasGray | AntialiasSubpixel | AntialiasFast | AntialiasGood | AntialiasBest
+  deriving (Show, Eq, Generic)
+
+instance ToDhall Antialias
+
+antialiasDecoder :: Decoder Antialias
+antialiasDecoder =
+  union
+    ( (AntialiasDefault <$ constructor "AntialiasDefault" unit)
+        <> (AntialiasNone <$ constructor "AntialiasNone" unit)
+        <> (AntialiasGray <$ constructor "AntialiasGray" unit)
+        <> (AntialiasSubpixel <$ constructor "AntialiasSubpixel" unit)
+        <> (AntialiasFast <$ constructor "AntialiasFast" unit)
+        <> (AntialiasGood <$ constructor "AntialiasGood" unit)
+        <> (AntialiasBest <$ constructor "AntialiasBest" unit)
+    )
+
 data Config = Config
   { overlayLayerID :: String,
     initialScale :: Double,
@@ -36,7 +70,9 @@ data Config = Config
     dX :: Double,
     dY :: Double,
     windowWidth :: Natural,
-    windowHeight :: Natural
+    windowHeight :: Natural,
+    hintStyle :: HintStyle,
+    antialias :: Antialias
   }
   deriving (Generic, Show, Eq)
 
@@ -59,6 +95,8 @@ configDecoder =
         <*> field "dY" double
         <*> field "windowWidth" natural
         <*> field "windowHeight" natural
+        <*> field "hintStyle" hstyle
+        <*> field "antialias" antialiasDecoder
     )
 
 defaultConf :: Config
@@ -73,7 +111,9 @@ defaultConf =
       dX = 3.0,
       dY = 3.0,
       windowWidth = 800,
-      windowHeight = 1055
+      windowHeight = 1055,
+      hintStyle = HintStyleDefault,
+      antialias = AntialiasDefault
     }
 
 writeDefaultConf :: FilePath -> IO ()

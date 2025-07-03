@@ -568,6 +568,28 @@ refresh :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO ()
 refresh da1 state =
   CRC.renderWithContext $ do
     st <- liftIO $ readIORef state
+    let aaoptions = case antialias (config st) of
+          AntialiasDefault -> CR.AntialiasDefault
+          AntialiasNone -> CR.AntialiasNone
+          AntialiasGray -> CR.AntialiasGray
+          AntialiasSubpixel -> CR.AntialiasSubpixel
+          AntialiasBest -> CR.AntialiasBest
+          AntialiasGood -> CR.AntialiasGood
+          AntialiasFast -> CR.AntialiasFast
+    CR.setAntialias aaoptions
+    fo <- CR.fontOptionsCreate
+    CR.fontOptionsSetAntialias fo aaoptions
+    CR.fontOptionsSetHintStyle
+      fo
+      ( case hintStyle (config st) of
+          HintStyleFull -> CR.HintStyleFull
+          HintStyleDefault -> CR.HintStyleDefault
+          HintStyleSlight -> CR.HintStyleSlight
+          HintStyleMedium -> CR.HintStyleMedium
+          HintStyleNone -> CR.HintStyleNone
+      )
+    CR.fontOptionsSetHintMetrics fo CR.HintMetricsOn
+    CR.setFontOptions fo
     let sc = scale st
     CR.scale sc sc
     CRC.toRender (refresh' da1 state)
