@@ -72,7 +72,8 @@ data Config = Config
     windowWidth :: Natural,
     windowHeight :: Natural,
     hintStyle :: HintStyle,
-    antialias :: Antialias
+    antialiasShapes :: Antialias,
+    antialiasFonts :: Antialias
   }
   deriving (Generic, Show, Eq)
 
@@ -96,7 +97,8 @@ configDecoder =
         <*> field "windowWidth" natural
         <*> field "windowHeight" natural
         <*> field "hintStyle" hstyle
-        <*> field "antialias" antialiasDecoder
+        <*> field "antialiasShapes" antialiasDecoder
+        <*> field "antialiasFonts" antialiasDecoder
     )
 
 defaultConf :: Config
@@ -113,7 +115,8 @@ defaultConf =
       windowWidth = 800,
       windowHeight = 1055,
       hintStyle = HintStyleDefault,
-      antialias = AntialiasDefault
+      antialiasShapes = AntialiasDefault,
+      antialiasFonts = AntialiasDefault
     }
 
 writeDefaultConf :: FilePath -> IO ()

@@ -564,21 +564,22 @@ noteDialog win x y oldnote tu state = do
 mkColor :: Int -> Double
 mkColor x = fromIntegral x / 255.0
 
+aaAdaptor :: Antialias -> CR.Antialias
+aaAdaptor AntialiasDefault = CR.AntialiasDefault
+aaAdaptor AntialiasNone = CR.AntialiasNone
+aaAdaptor AntialiasGray = CR.AntialiasGray
+aaAdaptor AntialiasSubpixel = CR.AntialiasSubpixel
+aaAdaptor AntialiasBest = CR.AntialiasBest
+aaAdaptor AntialiasGood = CR.AntialiasGood
+aaAdaptor AntialiasFast = CR.AntialiasFast
+
 refresh :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO ()
 refresh da1 state =
   CRC.renderWithContext $ do
     st <- liftIO $ readIORef state
-    let aaoptions = case antialias (config st) of
-          AntialiasDefault -> CR.AntialiasDefault
-          AntialiasNone -> CR.AntialiasNone
-          AntialiasGray -> CR.AntialiasGray
-          AntialiasSubpixel -> CR.AntialiasSubpixel
-          AntialiasBest -> CR.AntialiasBest
-          AntialiasGood -> CR.AntialiasGood
-          AntialiasFast -> CR.AntialiasFast
-    CR.setAntialias aaoptions
+    CR.setAntialias (aaAdaptor $ antialiasShapes (config st))
     fo <- CR.fontOptionsCreate
-    CR.fontOptionsSetAntialias fo aaoptions
+    CR.fontOptionsSetAntialias fo (aaAdaptor $ antialiasFonts (config st))
     CR.fontOptionsSetHintStyle
       fo
       ( case hintStyle (config st) of
