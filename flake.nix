@@ -20,6 +20,11 @@
         packages.default = dflt;
         devShells = {
           default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              haskellPackages.haskell-language-server
+              ghcid
+              cabal-install
+            ];
             inputsFrom = map (__getAttr "env") (__attrValues self.packages.${system});
           };
         };
