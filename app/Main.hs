@@ -16,6 +16,7 @@ import qualified Data.GI.Base.GValue as GV
 import Data.IORef
 import Data.List (find)
 import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
+import Data.Sort (sortOn)
 import qualified Data.Text as T
 import qualified Data.Vector as Vec
 import GHC.Int (Int32)
@@ -207,12 +208,13 @@ gotoBookmarkDialog win tu state = do
   let mbms = bookmarks $ pdq st
   case mbms of
     Just bms ->
-      sequence_
-        [ do
-            lbl <- new Gtk.Label [#label := T.pack $ i : ':' : ' ' : title bm]
-            vbox.append lbl
-          | (i, bm) <- zip ['a' .. 'z'] bms
-        ]
+      let bmsOrdered = sortOn bookmarkPage bms
+       in sequence_
+            [ do
+                lbl <- new Gtk.Label [#label := T.pack $ i : ':' : ' ' : (title bm ++ " ... " ++ show (bookmarkPage bm))]
+                vbox.append lbl
+              | (i, bm) <- zip ['a' .. 'z'] bmsOrdered
+            ]
     Nothing -> return ()
   controllerKeyPress <-
     new

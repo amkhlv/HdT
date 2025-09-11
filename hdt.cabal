@@ -76,7 +76,8 @@ executable hdtview
         gi-rsvg,
         optparse-applicative,
         dhall,
-        vector
+        vector,
+        sort
 
     hs-source-dirs:   app
     default-language: Haskell2010
