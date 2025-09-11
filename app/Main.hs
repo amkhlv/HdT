@@ -211,7 +211,7 @@ gotoBookmarkDialog win tu state = do
       let bmsOrdered = sortOn bookmarkPage bms
        in sequence_
             [ do
-                lbl <- new Gtk.Label [#label := T.pack $ i : ':' : ' ' : (title bm ++ " ... " ++ show (bookmarkPage bm))]
+                lbl <- new Gtk.Label [#label := T.pack $ i : ':' : ' ' : (title bm ++ " ... " ++ show (1 + bookmarkPage bm))]
                 vbox.append lbl
               | (i, bm) <- zip ['a' .. 'z'] bmsOrdered
             ]
@@ -225,6 +225,7 @@ gotoBookmarkDialog win tu state = do
           case x of
             Gdk.KEY_Escape -> GtkWin.windowDestroy dialog
             y -> do
+              let bmsOrdered = sortOn bookmarkPage $ fromMaybe [] $ bookmarks $ pdq st
               sequence_
                 [ when (y == i) $ do
                     let oldPdQ = pdq st
@@ -232,14 +233,14 @@ gotoBookmarkDialog win tu state = do
                     writeIORef state $ st {pdq = newPdQ}
                     savePdQ (pdqFile st) newPdQ
                     GtkWin.windowDestroy dialog
-                  | (i, bm) <- zip [65 ..] (fromMaybe [] $ bookmarks $ pdq st)
+                  | (i, bm) <- zip [65 ..] bmsOrdered
                 ]
               sequence_
                 [ when (y == i) $ do
                     writeIORef state $ st {pages = fromIntegral (bookmarkPage bm) : pages st}
                     readIORef state >>= updateUI tu
                     GtkWin.windowDestroy dialog
-                  | (i, bm) <- zip [97 ..] (fromMaybe [] $ bookmarks $ pdq st)
+                  | (i, bm) <- zip [97 ..] bmsOrdered
                 ]
           return True
       ]
