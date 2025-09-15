@@ -81,3 +81,12 @@ executable hdtview
 
     hs-source-dirs:   app
     default-language: Haskell2010
+
+executable pdqx
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:
+        base
+
+    hs-source-dirs:   app/pdqx
+    default-language: Haskell2010
