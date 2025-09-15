@@ -86,7 +86,9 @@ executable pdqx
     import:           warnings
     main-is:          Main.hs
     build-depends:
-        base
+        base,
+        optparse-applicative,
+        hdt
 
     hs-source-dirs:   app/pdqx
     default-language: Haskell2010
