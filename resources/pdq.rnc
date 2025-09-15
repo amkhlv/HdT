@@ -1,0 +1,15 @@
+namespace xsd = "http://www.w3.org/2001/XMLSchema-datatypes"
+any = text | element * {
+  (attribute * { text } | any)*
+}
+bm = element bookmark { attribute page { xsd:integer }, text }
+nt = element note { attribute page { xsd:integer }, attribute r { xsd:integer }, attribute g { xsd:integer }, attribute b { xsd:integer }, attribute x { xsd:float }, attribute y {xsd:float}, text }
+
+
+start =
+   element root {
+      element summary { any * }?,
+      element tags { element tag { text } * }?,
+      element bookmarks { bm * }?,
+      element notes { nt * }?
+   }

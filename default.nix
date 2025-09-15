@@ -9,5 +9,6 @@ pkgs.haskell.lib.overrideCabal (pkgs.haskellPackages.callCabal2nix "hdt" ./. { }
     + "mkdir -p $out/share/applications/; mkdir -p $out/share/icons/hicolor/scalable/apps/ ;"
     + "cp resources/HdTPDFViewer.desktop $out/share/applications/ ;"
     + "cp resources/HdTPDFViewer.svg $out/share/icons/hicolor/scalable/apps/ ;"
+    + "mkdir -p $out/share/xml/HdTPDFViewer/schema/rng/; cp resources/pdq.rnc $out/share/xml/HdTPDFViewer/schema/rng/ ;"
     + "\n";
 })

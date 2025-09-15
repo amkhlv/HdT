@@ -38,8 +38,11 @@ notePickler =
     xpWrap (uncurry7 Note, \n -> (note n, noteR n, noteG n, noteB n, notePage n, noteX n, noteY n)) $
       xp7Tuple (xpOption xpText) (xpAttr "r" xpInt) (xpAttr "g" xpInt) (xpAttr "b" xpInt) (xpAttr "page" xpInt) (xpAttr "x" xpPrim) (xpAttr "y" xpPrim)
 
+type Tag = String
+
 data PdQ = PdQ
   { summary :: Maybe [XmlTree],
+    tags :: Maybe [Tag],
     bookmarks :: Maybe [Bookmark],
     notes :: Maybe [Note]
   }
@@ -54,8 +57,8 @@ instance XmlPickler PdQ where
 pdqPickler :: PU PdQ
 pdqPickler =
   xpElem "root" $
-    xpWrap (\(s, bs, ns) -> PdQ {summary = s, bookmarks = bs, notes = ns}, \q -> (summary q, bookmarks q, notes q)) $
-      xpTriple (xpOption (xpElem "summary" xpTrees)) (xpOption (xpElem "bookmarks" (xpList xpickle))) (xpOption (xpElem "notes" (xpList notePickler)))
+    xpWrap (\(s, ts, bs, ns) -> PdQ {summary = s, tags = ts, bookmarks = bs, notes = ns}, \q -> (summary q, tags q, bookmarks q, notes q)) $
+      xp4Tuple (xpOption (xpElem "summary" xpTrees)) (xpOption (xpElem "tags" (xpList (xpElem "tag" xpText)))) (xpOption (xpElem "bookmarks" (xpList xpickle))) (xpOption (xpElem "notes" (xpList notePickler)))
 
 getPdQ :: String -> IO PdQ
 getPdQ filename = do
