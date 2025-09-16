@@ -12,7 +12,8 @@ import PdQ (PdQ (..), getPdQ)
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
 data Options = Options
-  { summaryQuery :: Maybe String
+  { summaryQuery :: Maybe String,
+    tagQuery :: Maybe String
   }
 
 optionsParser :: Opt.Parser Options
@@ -24,6 +25,14 @@ optionsParser =
               <> Opt.long "summary"
               <> Opt.metavar "SUMMARY"
               <> Opt.help "Print PdQ file paths whose summary matches SUMMARY"
+          )
+      )
+    <*> Opt.optional
+      ( Opt.strOption
+          ( Opt.short 't'
+              <> Opt.long "tag"
+              <> Opt.metavar "TAG"
+              <> Opt.help "Print PdQ file paths whose tag exactly matches TAG"
           )
       )
 
@@ -41,20 +50,26 @@ main = do
   contents <- getContents
   let files = map strip (lines contents)
       valid = filter (not . null) files
-  case summaryQuery opts of
-    Nothing -> mapM_ (void . getPdQ) valid
-    Just query -> do
-      let normalizedQuery = strip query
-      matches <- mapM (matchSummary normalizedQuery) valid
+      normalizedSummaryQuery = strip <$> summaryQuery opts
+      normalizedTagQuery = strip <$> tagQuery opts
+  case (normalizedSummaryQuery, normalizedTagQuery) of
+    (Nothing, Nothing) -> mapM_ (void . getPdQ) valid
+    _ -> do
+      matches <- mapM (matchFilters normalizedSummaryQuery normalizedTagQuery) valid
       mapM_ putStrLn (catMaybes matches)
 
-matchSummary :: String -> FilePath -> IO (Maybe FilePath)
-matchSummary query path = do
+matchFilters :: Maybe String -> Maybe String -> FilePath -> IO (Maybe FilePath)
+matchFilters mSummaryQuery mTagQuery path = do
   pdq <- getPdQ path
-  mSummary <- extractSummary pdq
-  pure $ case mSummary of
-    Just summaryText | query `isInfixOf` summaryText -> Just path
-    _ -> Nothing
+  summaryMatches <- case mSummaryQuery of
+    Nothing -> pure True
+    Just query -> do
+      mSummary <- extractSummary pdq
+      pure $ maybe False (query `isInfixOf`) mSummary
+  let tagMatches = case mTagQuery of
+        Nothing -> True
+        Just tag -> maybe False (elem tag . map strip) (tags pdq)
+  pure $ if summaryMatches && tagMatches then Just path else Nothing
 
 extractSummary :: PdQ -> IO (Maybe String)
 extractSummary pdq =
