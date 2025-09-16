@@ -49,7 +49,7 @@ data PdQ = PdQ
   deriving (Show, Eq)
 
 instance Default PdQ where
-  def = PdQ {summary = Nothing, bookmarks = Nothing, notes = Nothing}
+  def = PdQ {summary = Nothing, tags = Nothing, bookmarks = Nothing, notes = Nothing}
 
 instance XmlPickler PdQ where
   xpickle = pdqPickler
