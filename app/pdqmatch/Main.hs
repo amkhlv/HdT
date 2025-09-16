@@ -62,14 +62,20 @@ matchFilters :: Maybe String -> Maybe String -> FilePath -> IO (Maybe FilePath)
 matchFilters mSummaryQuery mTagQuery path = do
   pdq <- getPdQ path
   summaryMatches <- case mSummaryQuery of
-    Nothing -> pure True
+    Nothing -> pure Nothing
     Just query -> do
       mSummary <- extractSummary pdq
-      pure $ maybe False (query `isInfixOf`) mSummary
+      pure $ Just $ maybe False (query `isInfixOf`) mSummary
   let tagMatches = case mTagQuery of
-        Nothing -> True
-        Just tag -> maybe False (elem tag . map strip) (tags pdq)
-  pure $ if summaryMatches && tagMatches then Just path else Nothing
+        Nothing -> Nothing
+        Just tag -> Just $ maybe False (elem tag . map strip) (tags pdq)
+      matches =
+        case (summaryMatches, tagMatches) of
+          (Just s, Just t) -> s || t
+          (Just s, Nothing) -> s
+          (Nothing, Just t) -> t
+          (Nothing, Nothing) -> True
+  pure $ if matches then Just path else Nothing
 
 extractSummary :: PdQ -> IO (Maybe String)
 extractSummary pdq =
