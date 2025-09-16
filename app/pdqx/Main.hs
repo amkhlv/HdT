@@ -22,6 +22,11 @@ import Options.Applicative
     (<**>),
   )
 import PdQ (Bookmark (..), Note (..), PdQ (..), getPdQ)
+import System.Console.ANSI
+  ( ConsoleIntensity (BoldIntensity),
+    SGR (Reset, SetConsoleIntensity),
+    setSGRCode
+  )
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
 data Options = Options
@@ -95,7 +100,15 @@ printDefault opts pdq = do
             ("Bookmarks", bookmarksSection),
             ("Notes", notesSection)
           ]
-  printSections sections
+      highlighted = map highlight sections
+  printSections highlighted
+  where
+    highlight section@(title, contents)
+      | title `elem` ["Path", "Summary"] = (title, map bold contents)
+      | otherwise = section
+
+bold :: String -> String
+bold text = setSGRCode [SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode [Reset]
 
 printSections :: [(String, [String])] -> IO ()
 printSections [] = pure ()
