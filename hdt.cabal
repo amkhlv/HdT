@@ -88,7 +88,8 @@ executable pdqx
     build-depends:
         base,
         optparse-applicative,
-        hdt
+        hdt,
+        hxt
 
     hs-source-dirs:   app/pdqx
     default-language: Haskell2010
