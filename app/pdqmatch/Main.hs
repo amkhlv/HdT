@@ -3,7 +3,7 @@ module Main (main) where
 import Control.Arrow ((>>>))
 import Control.Monad (void)
 import Data.Char (isSpace)
-import Data.List (dropWhileEnd, intercalate)
+import Data.List (dropWhileEnd, intercalate, isInfixOf)
 import Data.Maybe (catMaybes)
 import Data.Semigroup ((<>))
 import qualified Options.Applicative as Opt
@@ -53,7 +53,7 @@ matchSummary query path = do
   pdq <- getPdQ path
   mSummary <- extractSummary pdq
   pure $ case mSummary of
-    Just summaryText | summaryText == query -> Just path
+    Just summaryText | query `isInfixOf` summaryText -> Just path
     _ -> Nothing
 
 extractSummary :: PdQ -> IO (Maybe String)
