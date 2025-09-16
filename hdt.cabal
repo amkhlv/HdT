@@ -100,7 +100,9 @@ executable pdqmatch
     main-is:          Main.hs
     build-depends:
         base,
-        hdt
+        hdt,
+        hxt,
+        optparse-applicative
 
     hs-source-dirs:   app/pdqmatch
     default-language: Haskell2010
