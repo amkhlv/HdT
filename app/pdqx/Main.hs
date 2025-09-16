@@ -18,6 +18,7 @@ import Options.Applicative
     progDesc,
     short,
     strArgument,
+    some,
     switch,
     (<**>),
   )
@@ -33,7 +34,7 @@ import System.Console.ANSI
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
 data Options = Options
-  { pdqFile :: FilePath,
+  { pdqFiles :: [FilePath],
     showSummary :: Bool,
     showNotes :: Bool,
     showBookmarks :: Bool,
@@ -43,9 +44,11 @@ data Options = Options
 optionsParser :: Parser Options
 optionsParser =
   Options
-    <$> strArgument
-      ( metavar "PDQ_FILE"
-          <> help "Path to the .pdq file"
+    <$> some
+      ( strArgument
+          ( metavar "PDQ_FILE..."
+              <> help "Paths to the .pdq files"
+          )
       )
     <*> switch
       ( short 's'
@@ -77,29 +80,31 @@ optionsInfo =
     )
 
 run :: Options -> IO ()
-run opts = do
-  pdq <- getPdQ (pdqFile opts)
-  let anySelector = or [showSummary opts, showNotes opts, showBookmarks opts, showTags opts]
-  if not anySelector
-    then printDefault opts pdq
-    else do
-      when (showSummary opts) $ printSummary pdq
-      when (showNotes opts) $ printNotes pdq
-      when (showBookmarks opts) $ printBookmarks pdq
-      when (showTags opts) $ printTags pdq
+run opts = mapM_ process (pdqFiles opts)
+  where
+    anySelector = or [showSummary opts, showNotes opts, showBookmarks opts, showTags opts]
+    process path = do
+      pdq <- getPdQ path
+      if not anySelector
+        then printDefault path pdq
+        else do
+          when (showSummary opts) $ printSummary pdq
+          when (showNotes opts) $ printNotes pdq
+          when (showBookmarks opts) $ printBookmarks pdq
+          when (showTags opts) $ printTags pdq
 
 main :: IO ()
 main = execParser optionsInfo >>= run
 
-printDefault :: Options -> PdQ -> IO ()
-printDefault opts pdq = do
+printDefault :: FilePath -> PdQ -> IO ()
+printDefault path pdq = do
   summarySection <- summaryLines pdq
   let bookmarksSection = bookmarkLines pdq
       notesSection = noteLines pdq
       sections =
         filter
           (not . null . snd)
-          [ ("Path", [pdqFile opts]),
+          [ ("Path", [path]),
             ("Summary", summarySection),
             ("Bookmarks", bookmarksSection),
             ("Notes", notesSection)
