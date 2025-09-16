@@ -12,7 +12,7 @@ import Options.Applicative
     metavar,
     progDesc,
     strArgument,
-    (<**>)
+    (<**>),
   )
 import PdQ (PdQ, getPdQ)
 
@@ -38,7 +38,7 @@ optionsInfo =
 
 run :: Options -> IO ()
 run opts = do
-  pdq :: PdQ <- getPdQ (pdqFile opts)
+  pdq <- getPdQ (pdqFile opts)
   print pdq
 
 main :: IO ()
