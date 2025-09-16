@@ -73,7 +73,7 @@ run opts = do
   pdq <- getPdQ (pdqFile opts)
   let anySelector = or [showSummary opts, showNotes opts, showBookmarks opts, showTags opts]
   if not anySelector
-    then print pdq
+    then printDefault opts pdq
     else do
       when (showSummary opts) $ printSummary pdq
       when (showNotes opts) $ printNotes pdq
@@ -82,6 +82,13 @@ run opts = do
 
 main :: IO ()
 main = execParser optionsInfo >>= run
+
+printDefault :: Options -> PdQ -> IO ()
+printDefault opts pdq = do
+  putStrLn (pdqFile opts)
+  printSummary pdq
+  printBookmarks pdq
+  printNotes pdq
 
 printSummary :: PdQ -> IO ()
 printSummary pdq =
