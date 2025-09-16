@@ -94,3 +94,13 @@ executable pdqx
 
     hs-source-dirs:   app/pdqx
     default-language: Haskell2010
+
+executable pdqmatch
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:
+        base,
+        hdt
+
+    hs-source-dirs:   app/pdqmatch
+    default-language: Haskell2010
