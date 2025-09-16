@@ -87,6 +87,7 @@ executable pdqx
     main-is:          Main.hs
     build-depends:
         base,
+        ansi-terminal,
         optparse-applicative,
         hdt,
         hxt
