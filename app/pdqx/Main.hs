@@ -23,9 +23,12 @@ import Options.Applicative
   )
 import PdQ (Bookmark (..), Note (..), PdQ (..), getPdQ)
 import System.Console.ANSI
-  ( ConsoleIntensity (BoldIntensity),
-    SGR (Reset, SetConsoleIntensity),
-    setSGRCode
+  ( Color (Blue, Green, Yellow),
+    ColorIntensity (Vivid),
+    ConsoleIntensity (BoldIntensity),
+    ConsoleLayer (Foreground),
+    SGR (Reset, SetColor, SetConsoleIntensity),
+    setSGRCode,
   )
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
@@ -94,7 +97,8 @@ printDefault opts pdq = do
   let bookmarksSection = bookmarkLines pdq
       notesSection = noteLines pdq
       sections =
-        filter (not . null . snd)
+        filter
+          (not . null . snd)
           [ ("Path", [pdqFile opts]),
             ("Summary", summarySection),
             ("Bookmarks", bookmarksSection),
@@ -104,23 +108,31 @@ printDefault opts pdq = do
   printSections highlighted
   where
     highlight section@(title, contents)
-      | title `elem` ["Path", "Summary"] = (title, map bold contents)
+      | title == "Path" = (title, map green contents)
+      | title == "Summary" = (title, map bold contents)
       | otherwise = section
 
 bold :: String -> String
 bold text = setSGRCode [SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode [Reset]
 
+green :: String -> String
+green text =
+  setSGRCode [SetColor Foreground Vivid Green] ++ text ++ setSGRCode [Reset]
+
+blue :: String -> String
+blue text =
+  setSGRCode [SetColor Foreground Vivid Blue, SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode [Reset]
+
 printSections :: [(String, [String])] -> IO ()
 printSections [] = pure ()
-printSections [section] = printSection section
+printSections [section] = printSection section >> putStrLn ""
 printSections (section : rest) = do
   printSection section
-  putStrLn ""
   printSections rest
 
 printSection :: (String, [String]) -> IO ()
 printSection (title, contents) = do
-  putStrLn title
+  when (title == "Bookmarks" || title == "Notes") (putStrLn $ blue title)
   mapM_ putStrLn contents
 
 printSummary :: PdQ -> IO ()
