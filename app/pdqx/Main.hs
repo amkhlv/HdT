@@ -85,26 +85,60 @@ main = execParser optionsInfo >>= run
 
 printDefault :: Options -> PdQ -> IO ()
 printDefault opts pdq = do
-  putStrLn (pdqFile opts)
-  printSummary pdq
-  printBookmarks pdq
-  printNotes pdq
+  summarySection <- summaryLines pdq
+  let bookmarksSection = bookmarkLines pdq
+      notesSection = noteLines pdq
+      sections =
+        filter (not . null . snd)
+          [ ("Path", [pdqFile opts]),
+            ("Summary", summarySection),
+            ("Bookmarks", bookmarksSection),
+            ("Notes", notesSection)
+          ]
+  printSections sections
+
+printSections :: [(String, [String])] -> IO ()
+printSections [] = pure ()
+printSections [section] = printSection section
+printSections (section : rest) = do
+  printSection section
+  putStrLn ""
+  printSections rest
+
+printSection :: (String, [String]) -> IO ()
+printSection (title, contents) = do
+  putStrLn title
+  mapM_ putStrLn contents
 
 printSummary :: PdQ -> IO ()
-printSummary pdq =
+printSummary pdq = do
+  fragments <- summaryLines pdq
+  mapM_ putStrLn fragments
+
+summaryLines :: PdQ -> IO [String]
+summaryLines pdq =
   case summary pdq of
-    Nothing -> pure ()
+    Nothing -> pure []
     Just trees -> do
       fragments <- runX (constA trees >>> arrL id >>> deep getText)
-      mapM_ putStrLn (filter (any (not . isSpace)) fragments)
+      pure (filter (any (not . isSpace)) fragments)
 
 printNotes :: PdQ -> IO ()
 printNotes pdq =
-  mapM_ putStrLn . filter (any (not . isSpace)) . mapMaybe note $ fromMaybe [] (notes pdq)
+  mapM_ putStrLn (noteLines pdq)
+
+noteLines :: PdQ -> [String]
+noteLines pdq = filter (any (not . isSpace)) . mapMaybe note $ fromMaybe [] (notes pdq)
 
 printBookmarks :: PdQ -> IO ()
 printBookmarks pdq =
-  mapM_ (\b -> putStrLn $ title b ++ " (page " ++ show (bookmarkPage b) ++ ")") $ fromMaybe [] (bookmarks pdq)
+  mapM_ putStrLn (bookmarkLines pdq)
+
+bookmarkLines :: PdQ -> [String]
+bookmarkLines pdq =
+  map
+    (\b -> title b ++ " (page " ++ show (bookmarkPage b) ++ ")")
+    (fromMaybe [] (bookmarks pdq))
 
 printTags :: PdQ -> IO ()
 printTags pdq =
