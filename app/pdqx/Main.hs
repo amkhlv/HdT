@@ -1,7 +1,10 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use maybe" #-}
 module Main (main) where
 
 import Control.Arrow ((>>>))
-import Control.Monad (when)
+import Control.Monad (unless, when)
 import Data.Char (isSpace)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Semigroup ((<>))
@@ -17,8 +20,8 @@ import Options.Applicative
     metavar,
     progDesc,
     short,
-    strArgument,
     some,
+    strArgument,
     switch,
     (<**>),
   )
@@ -33,11 +36,12 @@ import System.Console.ANSI
   )
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
+data Section = Path | Summary | Tags | Bookmarks | Notes deriving (Show, Eq)
+
 data Options = Options
   { pdqFiles :: [FilePath],
     showSummary :: Bool,
-    showNotes :: Bool,
-    showBookmarks :: Bool,
+    brief :: Bool,
     showTags :: Bool
   }
 
@@ -46,7 +50,7 @@ optionsParser =
   Options
     <$> some
       ( strArgument
-          ( metavar "PDQ_FILE..."
+          ( metavar "PdQ_FILE..."
               <> help "Paths to the .pdq files"
           )
       )
@@ -56,14 +60,9 @@ optionsParser =
           <> help "Print the PdQ summary"
       )
     <*> switch
-      ( short 'n'
-          <> long "notes"
-          <> help "Print PdQ notes"
-      )
-    <*> switch
       ( short 'b'
-          <> long "bookmarks"
-          <> help "Print PdQ bookmarks"
+          <> long "brief"
+          <> help "Only print file path and summary"
       )
     <*> switch
       ( short 't'
@@ -82,40 +81,25 @@ optionsInfo =
 run :: Options -> IO ()
 run opts = mapM_ process (pdqFiles opts)
   where
-    anySelector = or [showSummary opts, showNotes opts, showBookmarks opts, showTags opts]
+    anySelector = or [showSummary opts, showTags opts]
     process path = do
       pdq <- getPdQ path
       if not anySelector
-        then printDefault path pdq
+        then printDefault (brief opts) path pdq
         else do
           when (showSummary opts) $ printSummary pdq
-          when (showNotes opts) $ printNotes pdq
-          when (showBookmarks opts) $ printBookmarks pdq
           when (showTags opts) $ printTags pdq
 
 main :: IO ()
 main = execParser optionsInfo >>= run
 
-printDefault :: FilePath -> PdQ -> IO ()
-printDefault path pdq = do
-  summarySection <- summaryLines pdq
+printDefault :: Bool -> FilePath -> PdQ -> IO ()
+printDefault beBrief path pdq = do
   let bookmarksSection = bookmarkLines pdq
       notesSection = noteLines pdq
-      sections =
-        filter
-          (not . null . snd)
-          [ ("Path", [path]),
-            ("Summary", summarySection),
-            ("Bookmarks", bookmarksSection),
-            ("Notes", notesSection)
-          ]
-      highlighted = map highlight sections
-  printSections highlighted
-  where
-    highlight section@(title, contents)
-      | title == "Path" = (title, map green contents)
-      | title == "Summary" = (title, map bold contents)
-      | otherwise = section
+  putStrLn $ green path
+  printSummary pdq
+  unless beBrief (printSections $ filter (not . null . snd) [(Bookmarks, bookmarksSection), (Notes, notesSection)])
 
 bold :: String -> String
 bold text = setSGRCode [SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode [Reset]
@@ -128,22 +112,25 @@ blue :: String -> String
 blue text =
   setSGRCode [SetColor Foreground Vivid Blue, SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode [Reset]
 
-printSections :: [(String, [String])] -> IO ()
+printSections :: [(Section, [String])] -> IO ()
 printSections [] = pure ()
 printSections [section] = printSection section >> putStrLn ""
 printSections (section : rest) = do
   printSection section
   printSections rest
 
-printSection :: (String, [String]) -> IO ()
-printSection (title, contents) = do
-  when (title == "Bookmarks" || title == "Notes") (putStrLn $ blue title)
-  mapM_ putStrLn contents
+printSection :: (Section, [String]) -> IO ()
+printSection (ttl, contents) = do
+  putStrLn $ blue $ "  " ++ show ttl
+  putStr " "
+  mapM_ (putStr . (++) " • ") contents
 
 printSummary :: PdQ -> IO ()
 printSummary pdq = do
   fragments <- summaryLines pdq
-  mapM_ putStrLn fragments
+  unless
+    (null fragments)
+    (putStr " " >> mapM_ (putStr . bold . (" " ++)) fragments >> putStrLn "")
 
 summaryLines :: PdQ -> IO [String]
 summaryLines pdq =
@@ -153,21 +140,13 @@ summaryLines pdq =
       fragments <- runX (constA trees >>> arrL id >>> deep getText)
       pure (filter (any (not . isSpace)) fragments)
 
-printNotes :: PdQ -> IO ()
-printNotes pdq =
-  mapM_ putStrLn (noteLines pdq)
-
 noteLines :: PdQ -> [String]
 noteLines pdq = filter (any (not . isSpace)) . mapMaybe note $ fromMaybe [] (notes pdq)
-
-printBookmarks :: PdQ -> IO ()
-printBookmarks pdq =
-  mapM_ putStrLn (bookmarkLines pdq)
 
 bookmarkLines :: PdQ -> [String]
 bookmarkLines pdq =
   map
-    (\b -> title b ++ " (page " ++ show (bookmarkPage b) ++ ")")
+    (\b -> title b ++ " (page " ++ show (bookmarkPage b) ++ ")\n")
     (fromMaybe [] (bookmarks pdq))
 
 printTags :: PdQ -> IO ()
