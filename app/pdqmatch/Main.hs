@@ -4,17 +4,19 @@ import Control.Arrow ((>>>))
 import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.List (any, dropWhileEnd, intercalate, isInfixOf)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Semigroup ((<>))
-import qualified Options.Applicative as Opt
+import Data.Text (pack, stripSuffix, unpack)
 import Options.Applicative ((<**>))
+import qualified Options.Applicative as Opt
 import PdQ (Bookmark (..), Note (..), PdQ (..), getPdQ)
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
 data Options = Options
   { summaryQuery :: Maybe String,
     tagQuery :: Maybe String,
-    anyQuery :: Maybe String
+    anyQuery :: Maybe String,
+    printPDF :: Bool
   }
 
 optionsParser :: Opt.Parser Options
@@ -44,6 +46,7 @@ optionsParser =
               <> Opt.help "Print PdQ file paths whose summary, bookmarks, or notes match ANY"
           )
       )
+    <*> Opt.switch (Opt.short 'f' <> Opt.long "pdf" <> Opt.help "Print path to .pdf, instead of .pdq")
 
 optionsInfo :: Opt.ParserInfo Options
 optionsInfo =
@@ -52,6 +55,9 @@ optionsInfo =
     ( Opt.fullDesc
         <> Opt.progDesc "Read PdQ file paths from stdin and optionally match their summaries"
     )
+
+suffixPDF :: String -> String
+suffixPDF x = let txt = pack x in unpack (fromMaybe txt $ stripSuffix (pack ".pdq") txt) ++ ".pdf"
 
 main :: IO ()
 main = do
@@ -63,10 +69,10 @@ main = do
       normalizedTagQuery = strip <$> tagQuery opts
       normalizedAnyQuery = strip <$> anyQuery opts
   case (normalizedSummaryQuery, normalizedTagQuery, normalizedAnyQuery) of
-    (Nothing, Nothing, Nothing) -> mapM_ (void . getPdQ) valid
+    (Nothing, Nothing, Nothing) -> mapM_ getPdQ valid
     _ -> do
       matches <- mapM (matchFilters normalizedSummaryQuery normalizedTagQuery normalizedAnyQuery) valid
-      mapM_ putStrLn (catMaybes matches)
+      mapM_ (putStrLn . if printPDF opts then suffixPDF else id) (catMaybes matches)
 
 matchFilters :: Maybe String -> Maybe String -> Maybe String -> FilePath -> IO (Maybe FilePath)
 matchFilters mSummaryQuery mTagQuery mAnyQuery path = do
@@ -86,16 +92,18 @@ matchFilters mSummaryQuery mTagQuery mAnyQuery path = do
           Just query ->
             let summaryMatch = maybe False (isInfixOf query) mSummary
                 bookmarkMatches =
-                  maybe False
-                    ( any (\b -> isInfixOf query (strip (title b))) )
+                  maybe
+                    False
+                    (any (\b -> isInfixOf query (strip (title b))))
                     (bookmarks pdq)
                 noteMatches =
-                  maybe False
-                    ( any (\n -> maybe False (isInfixOf query) (strip <$> note n)) )
+                  maybe
+                    False
+                    (any (\n -> maybe False (isInfixOf query) (strip <$> note n)))
                     (notes pdq)
              in Just (summaryMatch || bookmarkMatches || noteMatches)
       activeMatches = catMaybes [summaryMatches, tagMatches, anyMatches]
-      matches = if null activeMatches then True else or activeMatches
+      matches = null activeMatches || or activeMatches
   pure $ if matches then Just path else Nothing
 
 extractSummary :: PdQ -> IO (Maybe String)

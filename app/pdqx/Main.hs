@@ -30,9 +30,12 @@ import System.Console.ANSI
   ( Color (Blue, Green, Yellow),
     ColorIntensity (Vivid),
     ConsoleIntensity (BoldIntensity),
-    ConsoleLayer (Foreground),
-    SGR (Reset, SetColor, SetConsoleIntensity),
+    ConsoleLayer (Background, Foreground),
+    SGR (Reset, SetColor, SetConsoleIntensity, SetPaletteColor),
+    setSGR,
     setSGRCode,
+    xterm24LevelGray,
+    xterm6LevelRGB,
   )
 import Text.XML.HXT.Core (arrL, constA, deep, getText, runX)
 
@@ -97,7 +100,7 @@ printDefault :: Bool -> FilePath -> PdQ -> IO ()
 printDefault beBrief path pdq = do
   let bookmarksSection = bookmarkLines pdq
       notesSection = noteLines pdq
-  putStrLn $ green path
+  putStrLn $ orange path
   printSummary pdq
   unless beBrief (printSections $ filter (not . null . snd) [(Bookmarks, bookmarksSection), (Notes, notesSection)])
 
@@ -107,6 +110,10 @@ bold text = setSGRCode [SetConsoleIntensity BoldIntensity] ++ text ++ setSGRCode
 green :: String -> String
 green text =
   setSGRCode [SetColor Foreground Vivid Green] ++ text ++ setSGRCode [Reset]
+
+orange :: String -> String
+orange text =
+  setSGRCode [SetPaletteColor Foreground $ xterm6LevelRGB 5 2 0, SetPaletteColor Background $ xterm24LevelGray 4] ++ text ++ setSGRCode [Reset]
 
 blue :: String -> String
 blue text =

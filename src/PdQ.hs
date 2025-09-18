@@ -1,6 +1,7 @@
 module PdQ (Bookmark (..), Note (..), PdQ (..), getPdQ, savePdQ) where
 
 import Data.Default
+import Data.Maybe (fromMaybe)
 import Text.XML.HXT.Arrow.Pickle
 import Text.XML.HXT.Core
 
@@ -16,8 +17,8 @@ instance XmlPickler Bookmark where
 bookmarkPickler :: PU Bookmark
 bookmarkPickler =
   xpElem "bookmark" $
-    xpWrap (uncurry Bookmark, \b -> (title b, bookmarkPage b)) $
-      xpPair xpText (xpAttr "page" xpInt)
+    xpWrap (uncurry (Bookmark . fromMaybe ""), \b -> (Just $ title b, bookmarkPage b)) $
+      xpPair (xpOption xpText) (xpAttr "page" xpInt)
 
 data Note = Note
   { note :: Maybe String,
