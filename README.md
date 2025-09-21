@@ -133,3 +133,31 @@ and on clicking `OK` it will replace it. If you click on `move` instead of `OK`,
 but will be remembered, and will come up at the next right-click. This is how to move them.
 
 Annotations are work in progress, for now.
+
+### Inspect `.pdq` files with `pdqx`
+
+The companion command `pdqx` prints information extracted from one or more `.pdq` files. By default it
+shows the file path, the parsed summary, and lists stored bookmarks and notes. Use the `-b/--brief` flag to
+omit the bookmark and note sections.
+
+Additional selectors allow targeting specific parts of a PdQ file:
+
+* `-s/--summary` – print only the summary text.
+* `-t/--tags` – print any tags defined in the PdQ file.
+
+Combine the selectors to customise the output, e.g. `pdqx -st myfile.pdq` prints both the summary and the tag list.
+
+### Search `.pdq` files with `pdqmatch`
+
+`pdqmatch` filters PdQ file paths read from standard input using optional search predicates. Each predicate is a
+substring match against the parsed PdQ contents unless noted otherwise. Matching file paths are printed to
+standard output (one per line).
+
+Available filters:
+
+* `-s/--summary SUMMARY` – keep files whose summary contains `SUMMARY`.
+* `-t/--tag TAG` – keep files that include a tag exactly equal to `TAG`.
+* `-a/--any QUERY` – keep files where `QUERY` matches the summary, any bookmark title, or any note text.
+
+The `-f/--pdf` flag prints the corresponding `.pdf` path instead of the `.pdq` path for each match. Without any
+filters `pdqmatch` merely validates the PdQ files it receives, reporting parse errors to standard error.
