@@ -1183,42 +1183,47 @@ activate clops app = do
   controllerKeyPress <-
     new
       Gtk.EventControllerKey
-      [ On #keyPressed $ \x _ mdfr -> do
+      [ On #keyPressed $ \x _ mdfrs -> do
           st <- readIORef state
           let uui = readIORef state >>= updateUI toUpdate
-           in case (mdfr, x) of
-                (_, Gdk.KEY_a) -> newBookmarkDialog window toUpdate state
-                (_, Gdk.KEY_c) -> makeAbsolute (pdfFile clops) >>= copyToClipboard
-                (_, Gdk.KEY_d) -> makeAbsolute (dDir st) >>= copyToClipboard
-                (_, Gdk.KEY_j) -> scrollV swin (dY conf) >> uui
-                (_, Gdk.KEY_J) -> scrollV swin (5 * dY conf) >> uui
-                (_, Gdk.KEY_k) -> scrollV swin (-dY conf) >> uui
-                (_, Gdk.KEY_K) -> scrollV swin (-5 * dY conf) >> uui
-                ([Gdk.ModifierTypeControlMask], Gdk.KEY_l) -> reload clops state >> uui
-                (_, Gdk.KEY_l) -> scrollH swin (dX conf) >> uui
-                (_, Gdk.KEY_L) -> scrollH swin (5 * dX conf) >> uui
-                (_, Gdk.KEY_h) -> scrollH swin (-dX conf) >> uui
-                (_, Gdk.KEY_H) -> scrollH swin (-5 * dX conf) >> uui
-                (_, Gdk.KEY_slash) -> search window toUpdate clops state
-                ([Gdk.ModifierTypeControlMask], Gdk.KEY_g) -> returnToWhereSearchStarted toUpdate state
-                (_, Gdk.KEY_g) -> gotoPageDialog window toUpdate state
-                (_, Gdk.KEY_period) -> writeIORef state (st {scale = scaleStep conf * scale st}) >> uui
-                (_, Gdk.KEY_comma) -> writeIORef state (st {scale = scale st / scaleStep conf}) >> uui
-                ([Gdk.ModifierTypeControlMask], Gdk.KEY_n) -> findNext window False toUpdate clops state
-                (_, Gdk.KEY_n) ->
-                  when
-                    (head (pages st) + 1 < totalPages st)
-                    (writeIORef state (st {pages = head (pages st) + 1 : tail (pages st)}) >> uui)
-                ([Gdk.ModifierTypeControlMask], Gdk.KEY_p) -> findNext window True toUpdate clops state
-                (_, Gdk.KEY_p) ->
-                  when
-                    (head (pages st) > 0)
-                    (writeIORef state (st {pages = head (pages st) - 1 : tail (pages st)}) >> uui)
-                ([Gdk.ModifierTypeControlMask], Gdk.KEY_b) -> gotoBookmarkDialog window toUpdate state
-                ([], Gdk.KEY_t) -> textExtract window conf state
-                (_, Gdk.KEY_b) -> when (length (pages st) > 1) (writeIORef state (st {pages = tail (pages st)}) >> uui)
-                ([], Gdk.KEY_F1) -> writeIORef state (st {showMatches = not $ showMatches st}) >> uui
-                _ -> return ()
+              ctrlIsDown = elem Gdk.ModifierTypeControlMask
+           in if ctrlIsDown mdfrs
+                then case x of
+                  Gdk.KEY_l -> reload clops state >> uui
+                  Gdk.KEY_g -> returnToWhereSearchStarted toUpdate state
+                  Gdk.KEY_n -> findNext window False toUpdate clops state
+                  Gdk.KEY_p -> findNext window True toUpdate clops state
+                  Gdk.KEY_b -> gotoBookmarkDialog window toUpdate state
+                  _ -> return ()
+                else case x of
+                  Gdk.KEY_a -> newBookmarkDialog window toUpdate state
+                  Gdk.KEY_c -> makeAbsolute (pdfFile clops) >>= copyToClipboard
+                  Gdk.KEY_d -> makeAbsolute (dDir st) >>= copyToClipboard
+                  Gdk.KEY_j -> scrollV swin (dY conf) >> uui
+                  Gdk.KEY_J -> scrollV swin (5 * dY conf) >> uui
+                  Gdk.KEY_k -> scrollV swin (-dY conf) >> uui
+                  Gdk.KEY_K -> scrollV swin (-5 * dY conf) >> uui
+                  Gdk.KEY_l -> scrollH swin (dX conf) >> uui
+                  Gdk.KEY_L -> scrollH swin (5 * dX conf) >> uui
+                  Gdk.KEY_h -> scrollH swin (-dX conf) >> uui
+                  Gdk.KEY_H -> scrollH swin (-5 * dX conf) >> uui
+                  Gdk.KEY_g -> gotoPageDialog window toUpdate state
+                  Gdk.KEY_b ->
+                    when (length (pages st) > 1) (writeIORef state (st {pages = tail (pages st)}) >> uui)
+                  Gdk.KEY_p ->
+                    when
+                      (head (pages st) > 0)
+                      (writeIORef state (st {pages = head (pages st) - 1 : tail (pages st)}) >> uui)
+                  Gdk.KEY_t -> textExtract window conf state
+                  Gdk.KEY_n ->
+                    when
+                      (head (pages st) + 1 < totalPages st)
+                      (writeIORef state (st {pages = head (pages st) + 1 : tail (pages st)}) >> uui)
+                  Gdk.KEY_period -> writeIORef state (st {scale = scaleStep conf * scale st}) >> uui
+                  Gdk.KEY_comma -> writeIORef state (st {scale = scale st / scaleStep conf}) >> uui
+                  Gdk.KEY_slash -> search window toUpdate clops state
+                  Gdk.KEY_F1 -> writeIORef state (st {showMatches = not $ showMatches st}) >> uui
+                  _ -> return ()
           return True
       ]
 
