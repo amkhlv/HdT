@@ -23,6 +23,7 @@ import GHC.Int (Int32)
 import qualified GI.Cairo.Render as CR
 import qualified GI.Cairo.Render.Connector as CRC
 import qualified GI.Cairo.Structs as CStructs
+import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gdk.Constants as GdkConst
 import qualified GI.Gdk.Flags as GdkFlags
@@ -82,6 +83,14 @@ getDoc :: Options -> IO PopDoc.Document
 getDoc clops = do
   pdfGFile <- getGFile clops
   PopDoc.documentNewFromGfile pdfGFile Nothing (Nothing :: Maybe Cancellable)
+
+refocusMain :: Gtk.ApplicationWindow -> ToUpdate -> IO ()
+refocusMain win tu = do
+  _ <- GLib.idleAdd GLib.PRIORITY_DEFAULT_IDLE $ do
+    Gtk.windowPresent win
+    _ <- Gtk.widgetGrabFocus (da tu)
+    pure GLib.SOURCE_REMOVE
+  pure ()
 
 refresh' :: Gtk.DrawingArea -> IORef AppState -> CStructs.Context -> IO ()
 refresh' da1 state ctxt = do
@@ -267,6 +276,8 @@ gotoPageDialog win tu state = do
               writeIORef state newSt
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
+              refocusMain win tu
+              return ()
             Nothing -> return ()
           return ()
       ]
@@ -317,6 +328,7 @@ overlays includingNotes win tu state = do
                   writeIORef state newSt
                   unless includingNotes $ GtkWin.windowDestroy panel
                   readIORef state >>= updateUI tu
+                  refocusMain win tu
               ]
           hbox1 <- readIORef row
           hbox1.append button
@@ -479,6 +491,7 @@ noteDialog win x y oldnote tu state = do
           GtkWin.windowDestroy dialog
           writeIORef state $ st {pdq = newPdQ, movingNote = Nothing}
           readIORef state >>= updateUI tu
+          refocusMain win tu
           savePdQ (pdqFile st) newPdQ
       ]
   hbox.append okButton
@@ -519,6 +532,7 @@ noteDialog win x y oldnote tu state = do
           GtkWin.windowDestroy dialog
           writeIORef state $ st {pdq = newPdQ, movingNote = Just newNote}
           readIORef state >>= updateUI tu
+          refocusMain win tu
           savePdQ (pdqFile st) newPdQ
       ]
   when (isJust oldnote) $ hbox.append moveButton
@@ -545,6 +559,7 @@ noteDialog win x y oldnote tu state = do
           GtkWin.windowDestroy dialog
           writeIORef state $ st {pdq = newPdQ, movingNote = Nothing}
           readIORef state >>= updateUI tu
+          refocusMain win tu
           savePdQ (pdqFile st) newPdQ
       ]
   when (isJust oldnote) $ hbox.append deleteButton
@@ -692,6 +707,7 @@ search win tu clops state = do
               writeIORef state $ st {matches = Nothing, showMatches = False, searchStartedOnPage = Nothing}
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
+              refocusMain win tu
             else do
               ms <-
                 sequence $
@@ -701,6 +717,7 @@ search win tu clops state = do
               writeIORef state $ st {matches = Just ms, showMatches = True, searchStartedOnPage = Just (head $ pages st)}
               GtkWin.windowDestroy dialog
               readIORef state >>= updateUI tu
+              refocusMain win tu
       ]
   GtkWin.windowSetChild dialog (Just entry)
   Gtk.widgetSetVisible entry True
@@ -789,7 +806,7 @@ activate clops app = do
   da <-
     new
       Gtk.DrawingArea
-      [#name := "da"]
+      [#name := "da", #focusable := True]
   Gtk.widgetAddCssClass da "main-area"
   view <- new Gtk.Viewport [#child := da, #hexpand := True]
   swin <- new Gtk.ScrolledWindow [#child := view, #hexpand := True]
